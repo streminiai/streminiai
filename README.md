@@ -1,4 +1,5 @@
 # stremini-app
+## 📁 Project Folder Structure
 frontend/   # UI & chat layout
 backend/    # API endpoints
 api/        # placeholder or Cloudflare Worker scripts
