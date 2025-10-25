@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../models/chat_message.dart';
+import '../models/message_model.dart';
 
 class MessageBubble extends StatelessWidget {
-  final ChatMessage message;
+  final Message message;
 
   const MessageBubble({
     super.key,
@@ -11,57 +11,71 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isUser = message.type == MessageType.user;
-    
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!isUser) ...[
-            const CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.blue,
-              child: Icon(
-                Icons.smart_toy,
-                size: 16,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: isUser ? const Color(0xFF2A2A2A) : const Color(0xFF1A1A1A),
-                borderRadius: BorderRadius.circular(18),
-                border: isUser ? null : Border.all(color: const Color(0xFF3A3A3A)),
-              ),
-              child: Text(
-                message.content,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                ),
-              ),
-            ),
+    if (message.type == MessageType.typing) {
+      return _buildTypingIndicator();
+    }
+
+    return Align(
+      alignment: message.type == MessageType.user
+          ? Alignment.centerRight
+          : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: message.type == MessageType.user
+              ? Colors.grey[800]
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.7,
+        ),
+        child: Text(
+          message.text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
           ),
-          if (isUser) ...[
-            const SizedBox(width: 8),
-            const CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.blue,
-              child: Icon(
-                Icons.person,
-                size: 16,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildTypingIndicator() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildTypingDot(0),
+            const SizedBox(width: 4),
+            _buildTypingDot(1),
+            const SizedBox(width: 4),
+            _buildTypingDot(2),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypingDot(int index) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 600),
+      builder: (context, value, child) {
+        return Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.3 + (value * 0.7)),
+            shape: BoxShape.circle,
+          ),
+        );
+      },
     );
   }
 }

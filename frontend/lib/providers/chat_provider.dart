@@ -1,53 +1,51 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/chat_message.dart';
+import '../models/message_model.dart';
 
-class ChatNotifier extends StateNotifier<List<ChatMessage>> {
-  ChatNotifier() : super([
-    const ChatMessage(
-      id: '1',
-      content: "Hello! I'm Stremini AI. How can I help you today?",
-      type: MessageType.ai,
-      timestamp: null,
-    ),
-  ]);
+class ChatNotifier extends StateNotifier<List<Message>> {
+  ChatNotifier() : super([]) {
+    // Add initial bot message
+    _addInitialMessage();
+  }
 
-  void addMessage(String content, MessageType type) {
-    final message = ChatMessage(
+  void _addInitialMessage() {
+    final initialMessage = Message(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      content: content,
-      type: type,
+      text: "Hello! I'm Stremini AI. How can I help you today?",
+      type: MessageType.bot,
       timestamp: DateTime.now(),
     );
-    state = [...state, message];
+    state = [initialMessage];
+  }
+
+  void sendMessage(String text) {
+    if (text.trim().isEmpty) return;
+
+    final userMessage = Message(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      text: text.trim(),
+      type: MessageType.user,
+      timestamp: DateTime.now(),
+    );
+
+    state = [...state, userMessage];
   }
 
   void addTypingIndicator() {
-    final typingMessage = ChatMessage(
-      id: 'typing',
-      content: '',
-      type: MessageType.ai,
+    final typingMessage = Message(
+      id: 'typing_${DateTime.now().millisecondsSinceEpoch}',
+      text: '',
+      type: MessageType.typing,
       timestamp: DateTime.now(),
-      isTyping: true,
     );
+
     state = [...state, typingMessage];
   }
 
   void removeTypingIndicator() {
-    state = state.where((message) => !message.isTyping).toList();
-  }
-
-  void clearChat() {
-    state = [
-      const ChatMessage(
-        id: '1',
-        content: "Hello! I'm Stremini AI. How can I help you today?",
-        type: MessageType.ai,
-        timestamp: null,
-      ),
-    ];
+    state = state.where((message) => message.type != MessageType.typing).toList();
   }
 }
 
-final chatProvider = StateNotifierProvider<ChatNotifier, List<ChatMessage>>((ref) {
+final chatProvider = StateNotifierProvider<ChatNotifier, List<Message>>((ref) {
   return ChatNotifier();
 });

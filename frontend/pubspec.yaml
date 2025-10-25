@@ -1,6 +1,5 @@
 name: stremini_chatbot
-description: A Flutter chatbot application for Stremini AI
-
+description: "A Flutter chatbot application for Stremini AI"
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -11,11 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
-  # State Management
   flutter_riverpod: ^2.4.9
-  
-  # UI Components
   cupertino_icons: ^1.0.2
 
 dev_dependencies:
@@ -25,6 +20,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  
-  assets:
-    - assets/images/

@@ -1,36 +1,33 @@
 enum MessageType {
   user,
-  ai,
+  bot,
+  typing,
 }
 
-class ChatMessage {
+class Message {
   final String id;
-  final String content;
+  final String text;
   final MessageType type;
   final DateTime timestamp;
-  final bool isTyping;
 
-  const ChatMessage({
+  const Message({
     required this.id,
-    required this.content,
+    required this.text,
     required this.type,
     required this.timestamp,
-    this.isTyping = false,
   });
 
-  ChatMessage copyWith({
+  Message copyWith({
     String? id,
-    String? content,
+    String? text,
     MessageType? type,
     DateTime? timestamp,
-    bool? isTyping,
   }) {
-    return ChatMessage(
+    return Message(
       id: id ?? this.id,
-      content: content ?? this.content,
+      text: text ?? this.text,
       type: type ?? this.type,
       timestamp: timestamp ?? this.timestamp,
-      isTyping: isTyping ?? this.isTyping,
     );
   }
 }
