@@ -23,7 +23,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   void _sendMessage() {
     final text = _controller.text.trim();
     if (text.isNotEmpty) {
-      ref.read(chatProvider.notifier).sendMessage(text);
+      ref.read(chatNotifierProvider.notifier).sendMessage(text);
       _controller.clear();
     }
   }

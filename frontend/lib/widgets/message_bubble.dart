@@ -48,15 +48,22 @@ class MessageBubble extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildTypingDot(0),
-            const SizedBox(width: 4),
-            _buildTypingDot(1),
-            const SizedBox(width: 4),
-            _buildTypingDot(2),
-          ],
+        child: SizedBox(
+          height: 500,
+          width: double.infinity,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildTypingDot(0),
+                const SizedBox(width: 4),
+                _buildTypingDot(1),
+                const SizedBox(width: 4),
+                _buildTypingDot(2),
+              ],
+            ),
+          ),
         ),
       ),
     );
