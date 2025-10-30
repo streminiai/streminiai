@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'overlay/chat_overlay_manager.dart';
+import 'utils/system_overlay_controller.dart';
 import 'screens/chat_screen.dart';
 
 void main() {
@@ -24,8 +25,10 @@ class StreminiChatbotApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      home: const ChatOverlayManager(
-        child: ChatScreen(),
+      home: const SystemOverlayController(
+        child: ChatOverlayManager(
+          child: ChatScreen(),
+        ),
       ),
       debugShowCheckedModeBanner: false,
     );
