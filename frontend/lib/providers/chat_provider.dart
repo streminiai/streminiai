@@ -93,24 +93,3 @@ class ChatNotifier extends AsyncNotifier<List<Message>> {
 /// Provider to read/write chat messages.
 final chatNotifierProvider =
     AsyncNotifierProvider<ChatNotifier, List<Message>>(ChatNotifier.new);
-
-/// Provider to track if the floating chat widget is expanded.
-final chatExpandedProvider = StateNotifierProvider<ChatExpandedNotifier, bool>(
-  (ref) => ChatExpandedNotifier(),
-);
-
-class ChatExpandedNotifier extends StateNotifier<bool> {
-  ChatExpandedNotifier() : super(false);
-
-  void toggle() {
-    state = !state;
-  }
-
-  void expand() {
-    state = true;
-  }
-
-  void minimize() {
-    state = false;
-  }
-}
