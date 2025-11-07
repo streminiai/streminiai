@@ -1,5 +1,6 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Permissions -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.example.stremini_chatbot"> 
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
@@ -13,7 +14,6 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         
-        <!-- Main Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -34,12 +34,16 @@
             </intent-filter>
         </activity>
 
-        <!-- Overlay Service for Floating Widget -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+
         <service
             android:name="flutter.overlay.window.OverlayService"
-            android:exported="false"/>
+            android:exported="false"
+            android:foregroundServiceType="phoneCall" 
+            tools:targetApi="q"/>
 
-        <!-- Accessibility Service for Screen Reading -->
         <service
             android:name=".ScreenReaderService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
@@ -51,9 +55,5 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
         </service>
-
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
     </application>
 </manifest>
