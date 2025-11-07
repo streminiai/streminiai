@@ -15,8 +15,8 @@ dependencies:
   google_fonts: ^6.1.0
   flutter_animate: ^4.5.0
   
-  # Floating button & overlay
-  flutter_floating: ^2.0.0
+  # Floating button & overlay (VERSION FIXED HERE)
+  flutter_floating: ^1.1.2 
   system_alert_window: ^2.0.0
   
   # HTTP & API
