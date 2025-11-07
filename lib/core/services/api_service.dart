@@ -1,29 +1,34 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../constants/api_constants.dart';
+import '../config/api_constants.dart';
+import '../models/chat_message.dart';
+import '../models/automation_action.dart';
+import '../models/security_scan_result.dart';
 
-class ApiService {
-  static final ApiService _instance = ApiService._internal();
-  factory ApiService() => _instance;
-  ApiService._internal();
+class StreminiApiService {
+  static final StreminiApiService _instance = StreminiApiService._internal();
+  factory StreminiApiService() => _instance;
+  StreminiApiService._internal();
 
   final http.Client _client = http.Client();
 
-  // Helper method for POST requests
-  Future<Map<String, dynamic>> _post(String endpoint, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> _post(
+    String endpoint,
+    Map<String, dynamic> body,
+  ) async {
     try {
       final url = Uri.parse('${ApiConstants.baseUrl}$endpoint');
-      final response = await _client.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode(body),
-      ).timeout(ApiConstants.connectionTimeout);
+      
+      final response = await _client
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(body),
+          )
+          .timeout(ApiConstants.connectionTimeout);
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
+        return jsonDecode(response.body);
       } else {
         throw Exception('API Error: ${response.statusCode}');
       }
@@ -32,102 +37,72 @@ class ApiService {
     }
   }
 
-  // Helper method for GET requests
-  Future<Map<String, dynamic>> _get(String endpoint) async {
-    try {
-      final url = Uri.parse('${ApiConstants.baseUrl}$endpoint');
-      final response = await _client.get(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      ).timeout(ApiConstants.connectionTimeout);
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      } else {
-        throw Exception('API Error: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Network Error: $e');
-    }
-  }
-
-  // ========== CHAT ENDPOINTS ==========
-  
-  Future<String> sendChatMessage(String message, List<Map<String, String>> history) async {
-    final response = await _post(ApiConstants.chatMessage, {
-      'message': message,
-      'conversationHistory': history,
-    });
+  // Chat
+  Future<String> sendChatMessage(
+    String message,
+    List<ChatMessage> history,
+  ) async {
+    final response = await _post(
+      ApiConstants.chatMessage,
+      {
+        'message': message,
+        'conversationHistory': history.map((m) => m.toJson()).toList(),
+      },
+    );
     return response['response'] as String;
   }
 
-  Future<List<String>> getChatSuggestions() async {
-    final response = await _get(ApiConstants.chatSuggestions);
-    final suggestions = response['suggestions'] as List<dynamic>;
-    return suggestions.map((e) => e.toString()).toList();
+  // Automation
+  Future<AutomationAction> parseVoiceCommand(String command) async {
+    final response = await _post(
+      ApiConstants.automationVoiceCommand,
+      {'command': command},
+    );
+    return AutomationAction.fromJson(response['parsed']);
   }
 
-  // ========== KEYBOARD ENDPOINTS ==========
-  
-  Future<String> completeText(String text, {String context = ''}) async {
-    final response = await _post(ApiConstants.keyboardComplete, {
-      'text': text,
-      'context': context,
-    });
+  // Translation
+  Future<String> translateScreen(String content, String language) async {
+    final response = await _post(
+      ApiConstants.translationTranslateScreen,
+      {'content': content, 'targetLanguage': language},
+    );
+    return response['translatedContent'] as String;
+  }
+
+  // Security
+  Future<SecurityScanResult> scanContent(String content) async {
+    final response = await _post(
+      ApiConstants.securityScanContent,
+      {'content': content},
+    );
+    return SecurityScanResult.fromJson(response['analysis']);
+  }
+
+  // Keyboard
+  Future<String> completeText(String text, String context) async {
+    final response = await _post(
+      ApiConstants.keyboardComplete,
+      {'text': text, 'context': context},
+    );
     return response['completion'] as String;
   }
 
   Future<String> changeTone(String text, String tone) async {
-    final response = await _post(ApiConstants.keyboardTone, {
-      'text': text,
-      'tone': tone,
-    });
+    final response = await _post(
+      ApiConstants.keyboardTone,
+      {'text': text, 'tone': tone},
+    );
     return response['rewritten'] as String;
   }
 
-  Future<String> translateText(String text, String targetLanguage) async {
-    final response = await _post(ApiConstants.keyboardTranslate, {
-      'text': text,
-      'targetLanguage': targetLanguage,
-    });
+  Future<String> translateText(String text, String language) async {
+    final response = await _post(
+      ApiConstants.keyboardTranslate,
+      {'text': text, 'targetLanguage': language},
+    );
     return response['translation'] as String;
   }
 
-  // ========== AUTOMATION ENDPOINTS ==========
-  
-  Future<Map<String, dynamic>> parseVoiceCommand(String command) async {
-    final response = await _post(ApiConstants.automationVoiceCommand, {
-      'command': command,
-    });
-    return response['parsed'] as Map<String, dynamic>;
-  }
-
-  // ========== SECURITY ENDPOINTS ==========
-  
-  Future<Map<String, dynamic>> scanContent(String content) async {
-    final response = await _post(ApiConstants.securityScanContent, {
-      'content': content,
-    });
-    return response['analysis'] as Map<String, dynamic>;
-  }
-
-  Future<bool> checkUrl(String url) async {
-    final response = await _post(ApiConstants.securityCheckUrl, {
-      'url': url,
-    });
-    return response['isSafe'] as bool? ?? true;
-  }
-
-  // ========== TRANSLATION ENDPOINTS ==========
-  
-  Future<String> translateScreen(String content, String targetLanguage) async {
-    final response = await _post(ApiConstants.translationTranslateScreen, {
-      'content': content,
-      'targetLanguage': targetLanguage,
-    });
-    return response['translatedContent'] as String;
-  }
+  void dispose() => _client.close();
 }
