@@ -1,143 +1,111 @@
-import 'package:flutter/material.dart';
-import '../models/chat_message.dart';
-import '../../../core/services/api_service.dart';
-import '../../../core/services/storage_service.dart';
+// lib/features/chat_provider.dart
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:stremini_chatbot/models/chat_message.dart';
+import 'package:stremini_chatbot/services/stremini_api_service.dart';
 
-class ChatProvider extends ChangeNotifier {
-  final ApiService _apiService = ApiService();
-  final StorageService _storage = StorageService();
+enum ChatStatus { idle, loading, streaming, error }
 
-  List<ChatMessage> _messages = [];
-  bool _isLoading = false;
-  String? _error;
-  List<String> _suggestions = [];
+class ChatProvider with ChangeNotifier {
+  final StreminiApiService _apiService;
+  final List<ChatMessage> _messages = [
+    // Initial welcome message (based on floating ui.jpg & project structure)
+    ChatMessage(
+      text: "Hey there! I'm Stremini - your AI assistant & digital bodyguard. I can help with chat, translation, security, and more.",
+      isUser: false,
+      timestamp: DateTime.now(),
+    ),
+  ];
+  ChatStatus _status = ChatStatus.idle;
+  String? _errorMessage;
 
+  // Constructor
+  ChatProvider({required StreminiApiService apiService}) : _apiService = apiService;
+
+  // Getters
   List<ChatMessage> get messages => _messages;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
-  List<String> get suggestions => _suggestions;
+  ChatStatus get status => _status;
+  String? get errorMessage => _errorMessage;
+  bool get isStreaming => _status == ChatStatus.streaming;
 
-  ChatProvider() {
-    _loadChatHistory();
-    _loadSuggestions();
-  }
+  // --- Core Methods ---
 
-  // Load chat history from storage
-  Future<void> _loadChatHistory() async {
-    try {
-      final history = _storage.getChatHistory();
-      _messages = history.map((map) {
-        return ChatMessage(
-          id: map['id'] ?? '',
-          content: map['content'] ?? '',
-          isUser: map['role'] == 'user',
-          timestamp: DateTime.now(),
-        );
-      }).toList();
-      notifyListeners();
-    } catch (e) {
-      print('Error loading chat history: $e');
-    }
-  }
+  /// Sends a user message and initiates the AI response stream.
+  Future<void> sendMessage(String text) async {
+    if (text.trim().isEmpty || _status == ChatStatus.streaming) return;
 
-  // Load suggestions
-  Future<void> _loadSuggestions() async {
-    try {
-      _suggestions = await _apiService.getChatSuggestions();
-      notifyListeners();
-    } catch (e) {
-      print('Error loading suggestions: $e');
-    }
-  }
-
-  // Send a message
-  Future<void> sendMessage(String content) async {
-    if (content.trim().isEmpty) return;
-
-    // Add user message
-    final userMessage = ChatMessage(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      content: content,
+    // 1. Add user message
+    _addMessage(ChatMessage(
+      text: text,
       isUser: true,
       timestamp: DateTime.now(),
-    );
-    _messages.add(userMessage);
-    _error = null;
-    notifyListeners();
+    ));
 
-    // Show loading
-    _isLoading = true;
-    notifyListeners();
+    // 2. Prepare for AI response (Add a placeholder message)
+    final aiPlaceholderMessage = ChatMessage(
+      text: '', // Start with empty text
+      isUser: false,
+      timestamp: DateTime.now(),
+    );
+    _addMessage(aiPlaceholderMessage);
+    
+    _setStatus(ChatStatus.streaming);
+    String fullResponse = '';
 
     try {
-      // Convert messages to API format
-      final history = _messages
-          .map((msg) => msg.toApiFormat())
-          .toList();
+      // 3. Call the streaming API
+      Stream<String> responseStream = _apiService.streamChatMessage(text);
+      
+      await for (final chunk in responseStream) {
+        // Update the last message (the placeholder) with the new chunk
+        fullResponse += chunk;
+        
+        // This is a common pattern to update the last message in a stream
+        _messages.last = aiPlaceholderMessage.copyWith(text: fullResponse);
+        notifyListeners(); // Notify listeners for UI update
+      }
 
-      // Get AI response
-      final response = await _apiService.sendChatMessage(content, history);
+      _setStatus(ChatStatus.idle);
 
-      // Add AI message
-      final aiMessage = ChatMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        content: response,
-        isUser: false,
-        timestamp: DateTime.now(),
+    } catch (e) {
+      _errorMessage = 'Failed to get AI response: ${e.toString()}';
+      _setStatus(ChatStatus.error);
+      // Replace the last (placeholder) message with an error state message
+      _messages.last = aiPlaceholderMessage.copyWith(
+        text: "Error: Could not connect to AI. Please try again.",
+        isError: true,
       );
-      _messages.add(aiMessage);
-
-      // Save to storage
-      await _saveChatHistory();
-
-    } catch (e) {
-      _error = e.toString();
-      print('Error sending message: $e');
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      // Ensure status is reset if not already
+      if (_status == ChatStatus.streaming) {
+         _setStatus(ChatStatus.idle);
+      }
     }
   }
 
-  // Save chat history
-  Future<void> _saveChatHistory() async {
-    try {
-      final history = _messages
-          .map((msg) => msg.toApiFormat())
-          .toList();
-      await _storage.saveChatHistory(history);
-    } catch (e) {
-      print('Error saving chat history: $e');
-    }
-  }
-
-  // Clear chat
-  Future<void> clearChat() async {
+  /// Clears the entire chat history.
+  void clearChat() {
     _messages.clear();
-    await _storage.clearChatHistory();
+    // Re-add the initial welcome message
+     _messages.add(ChatMessage(
+      text: "Hey there! I'm Stremini - your AI assistant & digital bodyguard. I can help with chat, translation, security, and more.",
+      isUser: false,
+      timestamp: DateTime.now(),
+    ));
     notifyListeners();
   }
 
-  // Send suggestion
-  Future<void> sendSuggestion(String suggestion) async {
-    await sendMessage(suggestion);
+  // --- Internal Helpers ---
+  void _addMessage(ChatMessage message) {
+    _messages.add(message);
+    notifyListeners();
   }
 
-  // Retry last message
-  Future<void> retryLastMessage() async {
-    if (_messages.isEmpty) return;
-    
-    // Find last user message
-    final lastUserMessage = _messages.lastWhere(
-      (msg) => msg.isUser,
-      orElse: () => _messages.last,
-    );
-    
-    // Remove messages after last user message
-    final index = _messages.indexOf(lastUserMessage);
-    _messages = _messages.sublist(0, index + 1);
-    
-    // Resend
-    await sendMessage(lastUserMessage.content);
+  void _setStatus(ChatStatus newStatus) {
+    _status = newStatus;
+    if (newStatus != ChatStatus.error) {
+      _errorMessage = null;
+    }
+    notifyListeners();
   }
 }
