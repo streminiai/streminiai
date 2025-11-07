@@ -1,9 +1,9 @@
-// android/app/src/main/kotlin/com/example/stremini_chatbot/MainActivity.kt
+// android/app/src/main/kotlin/com/stremini/ai/MainActivity.kt
 
-package com.example.stremini_chatbot
+package com.stremini.ai
 
 import io.flutter.embedding.android.FlutterActivity
 
-// Ensure your class extends FlutterActivity directly for v2 embedding.
-class MainActivity: FlutterActivity() {
+// This MUST extend FlutterActivity for v2 embedding
+class MainActivity: FlutterActivity() { 
 }
