@@ -1,9 +1,10 @@
 
 import 'package:flutter/material.dart';
+import 'package:stremniapp/screens/home_screen.dart'; // Importing the new Home Screen
 import 'package:stremniapp/screens/screen_analyzer_screen.dart';
 import 'package:stremniapp/widgets/app_drawer.dart';
 
-// Placeholder screens with new architecture (Drawer)
+// Placeholder screens for other features
 class VoiceControlScreen extends StatelessWidget {
   const VoiceControlScreen({Key? key}) : super(key: key);
   @override
@@ -11,16 +12,6 @@ class VoiceControlScreen extends StatelessWidget {
         appBar: AppBar(title: const Text('Voice Control')),
         drawer: const AppDrawer(),
         body: const Center(child: Text('Voice Control Screen')),
-      );
-}
-
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({Key? key}) : super(key: key);
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Home')),
-        drawer: const AppDrawer(),
-        body: const Center(child: Text('Home Screen')),
       );
 }
 
@@ -44,6 +35,7 @@ class DigitalBodyguardScreen extends StatelessWidget {
       );
 }
 
+
 class AppRouter {
   static const String voice = '/voice';
   static const String home = '/home';
@@ -58,10 +50,10 @@ class AppRouter {
         screen = const VoiceControlScreen();
         break;
       case home:
-        screen = const HomeScreen();
+        screen = const HomeScreen(); // Using the new, real HomeScreen
         break;
       case analyzer:
-        screen = const ScreenAnalyzerScreen(); // Using the real screen
+        screen = const ScreenAnalyzerScreen();
         break;
       case autoTask:
         screen = const AutoTaskScreen();

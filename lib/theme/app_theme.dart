@@ -17,7 +17,6 @@ class AppTheme {
     scaffoldBackgroundColor: scaffoldBackgroundColor,
     colorScheme: const ColorScheme.dark(
       primary: primaryColor,
-      background: backgroundColor,
       surface: cardColor,
     ),
     // Using Google Fonts for the text theme
@@ -56,14 +55,14 @@ class AppTheme {
       ),
     ),
     switchTheme: SwitchThemeData(
-      thumbColor: MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
-        if (states.contains(MaterialState.selected)) {
+      thumbColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
+        if (states.contains(WidgetState.selected)) {
           return primaryColor;
         }
         return null;
       }),
-      trackColor: MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
-        if (states.contains(MaterialState.selected)) {
+      trackColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
+        if (states.contains(WidgetState.selected)) {
           return primaryColor.withOpacity(0.5);
         }
         return null;
