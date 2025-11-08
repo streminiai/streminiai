@@ -1,0 +1,336 @@
+// lib/widgets/chat/suggestion_chips.dart
+
+import 'package:flutter/material.dart';
+import '../../utils/constants.dart';
+import '../../utils/helpers.dart';
+
+/// Horizontal scrollable suggestion chips
+class SuggestionChips extends StatelessWidget {
+  final List<String> suggestions;
+  final Function(String) onSuggestionTap;
+  final bool isLoading;
+
+  const SuggestionChips({
+    Key? key,
+    required this.suggestions,
+    required this.onSuggestionTap,
+    this.isLoading = false,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    if (suggestions.isEmpty && !isLoading) {
+      return SizedBox.shrink();
+    }
+
+    return Container(
+      height: 46,
+      margin: EdgeInsets.only(bottom: AppConstants.spaceS),
+      child: isLoading
+          ? _buildLoadingSuggestions()
+          : ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+              itemCount: suggestions.length,
+              itemBuilder: (context, index) {
+                return Padding(
+                  padding: EdgeInsets.only(right: AppConstants.spaceS),
+                  child: SuggestionChip(
+                    label: suggestions[index],
+                    onTap: () {
+                      AppHelpers.hapticFeedback(light: true);
+                      onSuggestionTap(suggestions[index]);
+                    },
+                  ),
+                );
+              },
+            ),
+    );
+  }
+
+  Widget _buildLoadingSuggestions() {
+    return ListView.builder(
+      scrollDirection: Axis.horizontal,
+      padding: EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+      itemCount: 3,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: EdgeInsets.only(right: AppConstants.spaceS),
+          child: _LoadingChip(),
+        );
+      },
+    );
+  }
+}
+
+/// Individual suggestion chip
+class SuggestionChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final IconData? icon;
+  final Color? color;
+
+  const SuggestionChip({
+    Key? key,
+    required this.label,
+    required this.onTap,
+    this.icon,
+    this.color,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color ?? AppConstants.cardDark,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 10,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppConstants.dividerColor,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(
+                  icon,
+                  size: 16,
+                  color: AppConstants.primaryColor,
+                ),
+                SizedBox(width: 6),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: AppConstants.bodySize,
+                  color: AppConstants.textPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Loading shimmer chip
+class _LoadingChip extends StatefulWidget {
+  @override
+  State<_LoadingChip> createState() => _LoadingChipState();
+}
+
+class _LoadingChipState extends State<_LoadingChip>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 1200),
+    )..repeat();
+
+    _animation = Tween<double>(begin: -1.0, end: 2.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          width: 120,
+          height: 38,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              stops: [
+                _animation.value - 0.3,
+                _animation.value,
+                _animation.value + 0.3,
+              ].map((e) => e.clamp(0.0, 1.0)).toList(),
+              colors: [
+                AppConstants.cardDark,
+                AppConstants.inputFieldColor,
+                AppConstants.cardDark,
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Feature suggestion chips with icons
+class FeatureSuggestionChips extends StatelessWidget {
+  final Function(String) onFeatureTap;
+
+  const FeatureSuggestionChips({
+    Key? key,
+    required this.onFeatureTap,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final features = [
+      {'label': 'Translate', 'icon': Icons.translate, 'feature': 'translation'},
+      {'label': 'Scan', 'icon': Icons.security, 'feature': 'security'},
+      {'label': 'Voice', 'icon': Icons.mic, 'feature': 'automation'},
+      {'label': 'Keyboard', 'icon': Icons.keyboard, 'feature': 'keyboard'},
+    ];
+
+    return Container(
+      height: 46,
+      margin: EdgeInsets.only(bottom: AppConstants.spaceS),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+        itemCount: features.length,
+        itemBuilder: (context, index) {
+          final feature = features[index];
+          return Padding(
+            padding: EdgeInsets.only(right: AppConstants.spaceS),
+            child: SuggestionChip(
+              label: feature['label'] as String,
+              icon: feature['icon'] as IconData,
+              onTap: () {
+                onFeatureTap(feature['feature'] as String);
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Quick action chips (at start of conversation)
+class QuickActionChips extends StatelessWidget {
+  final Function(String) onActionTap;
+
+  const QuickActionChips({
+    Key? key,
+    required this.onActionTap,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = [
+      'Help me write',
+      'Translate this',
+      'Check for scams',
+      'Summarize text',
+    ];
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: AppConstants.spaceM,
+        vertical: AppConstants.spaceM,
+      ),
+      child: Wrap(
+        spacing: AppConstants.spaceS,
+        runSpacing: AppConstants.spaceS,
+        children: actions.map((action) {
+          return SuggestionChip(
+            label: action,
+            onTap: () => onActionTap(action),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+/// Category chips (for filtering/navigation)
+class CategoryChips extends StatefulWidget {
+  final List<String> categories;
+  final Function(String) onCategorySelected;
+  final String? selectedCategory;
+
+  const CategoryChips({
+    Key? key,
+    required this.categories,
+    required this.onCategorySelected,
+    this.selectedCategory,
+  }) : super(key: key);
+
+  @override
+  State<CategoryChips> createState() => _CategoryChipsState();
+}
+
+class _CategoryChipsState extends State<CategoryChips> {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 40,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+        itemCount: widget.categories.length,
+        itemBuilder: (context, index) {
+          final category = widget.categories[index];
+          final isSelected = category == widget.selectedCategory;
+
+          return Padding(
+            padding: EdgeInsets.only(right: AppConstants.spaceS),
+            child: Material(
+              color: isSelected
+                  ? AppConstants.primaryColor
+                  : AppConstants.cardDark,
+              borderRadius: BorderRadius.circular(20),
+              child: InkWell(
+                onTap: () {
+                  AppHelpers.hapticFeedback(light: true);
+                  widget.onCategorySelected(category);
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Text(
+                    category,
+                    style: TextStyle(
+                      fontSize: AppConstants.bodySize,
+                      color: isSelected
+                          ? AppConstants.textPrimary
+                          : AppConstants.textSecondary,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
