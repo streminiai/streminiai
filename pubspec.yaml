@@ -17,7 +17,7 @@ dependencies:
   provider: ^6.1.1
   
   # Floating Widget
-  flutter_overlay_window: ^0.4.6
+  flutter_overlay_window: ^0.5.0
   
   # Voice Recognition
   speech_to_text: ^6.6.0
