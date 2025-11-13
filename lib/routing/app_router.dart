@@ -1,8 +1,9 @@
 
 import 'package:flutter/material.dart';
-import 'package:stremniapp/screens/home_screen.dart'; // Importing the new Home Screen
+import 'package:stremniapp/screens/home_screen.dart';
 import 'package:stremniapp/screens/screen_analyzer_screen.dart';
 import 'package:stremniapp/widgets/app_drawer.dart';
+import 'package:stremniapp/screens/custom_keyboard_screen.dart'; // Will be created
 
 // Placeholder screens for other features
 class VoiceControlScreen extends StatelessWidget {
@@ -42,6 +43,7 @@ class AppRouter {
   static const String analyzer = '/analyzer';
   static const String autoTask = '/auto_task';
   static const String bodyguard = '/bodyguard';
+  static const String keyboard = '/keyboard'; // New route
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     Widget screen;
@@ -50,7 +52,7 @@ class AppRouter {
         screen = const VoiceControlScreen();
         break;
       case home:
-        screen = const HomeScreen(); // Using the new, real HomeScreen
+        screen = const HomeScreen();
         break;
       case analyzer:
         screen = const ScreenAnalyzerScreen();
@@ -60,6 +62,9 @@ class AppRouter {
         break;
       case bodyguard:
         screen = const DigitalBodyguardScreen();
+        break;
+      case keyboard:
+        screen = const CustomKeyboardScreen(); // New screen
         break;
       default:
         screen = Scaffold(

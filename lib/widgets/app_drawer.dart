@@ -7,7 +7,6 @@ class AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Getting the current route to highlight the active item
     final currentRoute = ModalRoute.of(context)?.settings.name;
 
     return Drawer(
@@ -17,28 +16,26 @@ class AppDrawer extends StatelessWidget {
           padding: EdgeInsets.zero,
           children: [
             const SizedBox(height: 80), // Spacer for status bar and header
-            ListTile(
-              leading: const Icon(Icons.home_outlined),
-              title: const Text('Home'),
-              selected: currentRoute == AppRouter.home,
-              onTap: () {
-                Navigator.pop(context); // Close the drawer
-                if (currentRoute != AppRouter.home) {
-                  Navigator.pushReplacementNamed(context, AppRouter.home);
-                }
-              },
+            _buildDrawerItem(
+              context: context,
+              icon: Icons.home_outlined,
+              title: 'Home',
+              route: AppRouter.home,
+              currentRoute: currentRoute,
             ),
-            ListTile(
-              leading: const Icon(Icons.add_comment_outlined),
-              title: const Text('New Chat'),
-              // Example of how to handle selection
-              selected: currentRoute == AppRouter.analyzer, // Assuming new chat is analyzer screen
-              onTap: () {
-                Navigator.pop(context);
-                if (currentRoute != AppRouter.analyzer) {
-                  Navigator.pushReplacementNamed(context, AppRouter.analyzer);
-                }
-              },
+            _buildDrawerItem(
+              context: context,
+              icon: Icons.add_comment_outlined,
+              title: 'New Chat',
+              route: AppRouter.analyzer, // Assuming new chat is analyzer screen
+              currentRoute: currentRoute,
+            ),
+            _buildDrawerItem(
+              context: context,
+              icon: Icons.keyboard_alt_outlined, // New Icon
+              title: 'Custom Keyboard',       // New Title
+              route: AppRouter.keyboard,        // New Route
+              currentRoute: currentRoute,
             ),
             ListTile(
               leading: const Icon(Icons.history_outlined),
@@ -62,6 +59,28 @@ class AppDrawer extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  // Helper method to reduce code duplication
+  Widget _buildDrawerItem({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String route,
+    required String? currentRoute,
+  }) {
+    final isSelected = currentRoute == route;
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      selected: isSelected,
+      onTap: () {
+        Navigator.pop(context); // Close the drawer
+        if (!isSelected) {
+          Navigator.pushReplacementNamed(context, route);
+        }
+      },
     );
   }
 }
