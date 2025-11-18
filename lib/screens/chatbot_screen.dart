@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:stremniapp/services/api_service.dart';
 
 class ChatbotScreen extends StatefulWidget {
@@ -70,66 +71,79 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
       final response = await _apiService.sendChatMessage(message, history: history);
       
-      if (response['response'] != null) {
-        _addMessage(response['response'], isUser: false);
-      } else if (response['text'] != null) {
-        _addMessage(response['text'], isUser: false);
-      } else {
-        _addMessage('Sorry, I couldn\'t process that request.', isUser: false);
-      }
+      // Extract response text from various possible formats
+      String responseText = response['response'] ?? 
+                           response['text'] ?? 
+                           response['message'] ??
+                           'Sorry, I couldn\'t process that request.';
+      
+      _addMessage(responseText, isUser: false);
     } catch (e) {
       String errorMsg = e.toString().replaceFirst("Exception: ", "");
-      _addMessage('Error: $errorMsg', isUser: false);
+      _showErrorDialog(errorMsg, message);
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  void _showAttachmentOptions() {
-    showModalBottomSheet(
+  void _showErrorDialog(String error, String originalMessage) {
+    showDialog(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
+      builder: (context) => AlertDialog(
+        title: const Text('Error'),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Camera'),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Camera feature coming soon!')),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo),
-              title: const Text('Photo'),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Photo feature coming soon!')),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.description),
-              title: const Text('Document'),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Document feature coming soon!')),
-                );
-              },
-            ),
+            Text(error),
+            const SizedBox(height: 16),
+            const Text('Would you like to retry?'),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _messageController.text = originalMessage;
+              _sendMessage();
+            },
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _clearChat() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear Chat?'),
+        content: const Text('This will delete all messages in this conversation.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _messages.clear();
+                _addMessage(
+                  "Hello! I'm Stremini AI. How can I help you today?",
+                  isUser: false,
+                );
+              });
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Clear'),
+          ),
+        ],
       ),
     );
   }
@@ -143,10 +157,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF2C2C2E),
+        backgroundColor: theme.cardColor,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -158,14 +174,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               width: 35,
               height: 35,
               decoration: BoxDecoration(
-                color: const Color(0xFF0A84FF),
+                color: theme.primaryColor,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.bolt, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 12),
             const Text(
-              'Stremini',
+              'Stremini AI',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
@@ -173,6 +189,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: _clearChat,
+            tooltip: 'Clear chat',
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -182,12 +205,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
+                      children: [
+                        Icon(Icons.chat_bubble_outline, 
+                             size: 64, 
+                             color: theme.disabledColor),
+                        const SizedBox(height: 16),
                         Text(
                           'Start a conversation!',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                          style: TextStyle(fontSize: 18, color: theme.disabledColor),
                         ),
                       ],
                     ),
@@ -210,18 +235,21 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               alignment: Alignment.centerLeft,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
+                children: [
                   SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: theme.primaryColor,
+                    ),
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Text(
                     'Thinking...',
                     style: TextStyle(
                       fontStyle: FontStyle.italic,
-                      color: Colors.grey,
+                      color: theme.disabledColor,
                     ),
                   ),
                 ],
@@ -232,7 +260,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF2C2C2E),
+              color: theme.cardColor,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.2),
@@ -244,30 +272,22 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             child: SafeArea(
               child: Row(
                 children: [
-                  // Attachment button
-                  IconButton(
-                    icon: const Icon(Icons.add, size: 28),
-                    onPressed: _showAttachmentOptions,
-                    color: Colors.white70,
-                  ),
-                  const SizedBox(width: 8),
-                  
                   // Text input
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF3C3C3E),
+                        color: theme.scaffoldBackgroundColor,
                         borderRadius: BorderRadius.circular(24),
                       ),
                       child: TextField(
                         controller: _messageController,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'Ask anything...',
-                          hintStyle: TextStyle(color: Colors.white38),
+                          hintStyle: TextStyle(color: theme.disabledColor),
                           border: InputBorder.none,
                         ),
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: theme.textTheme.bodyLarge?.color),
                         maxLines: null,
                         textInputAction: TextInputAction.send,
                         onSubmitted: (_) => _sendMessage(),
@@ -277,23 +297,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   ),
                   const SizedBox(width: 8),
                   
-                  // Voice button
-                  IconButton(
-                    icon: const Icon(Icons.mic, size: 28),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Voice input coming soon!')),
-                      );
-                    },
-                    color: Colors.white70,
-                  ),
-                  
                   // Send button
                   IconButton(
                     icon: Icon(
                       Icons.send,
                       size: 28,
-                      color: _isLoading ? Colors.grey : const Color(0xFF0A84FF),
+                      color: _isLoading ? theme.disabledColor : theme.primaryColor,
                     ),
                     onPressed: _isLoading ? null : _sendMessage,
                   ),
@@ -307,6 +316,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   }
 
   Widget _buildMessageBubble(ChatMessage message) {
+    final theme = Theme.of(context);
+    
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -318,7 +329,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: const Color(0xFF0A84FF),
+                color: theme.primaryColor,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.bolt, color: Colors.white, size: 18),
@@ -326,20 +337,44 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             const SizedBox(width: 12),
           ],
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: message.isUser
-                    ? const Color(0xFF3C3C3E)
-                    : const Color(0xFF2C2C2E),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: SelectableText(
-                message.text,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  height: 1.4,
+            child: GestureDetector(
+              onLongPress: () {
+                Clipboard.setData(ClipboardData(text: message.text));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Message copied to clipboard'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: message.isUser
+                      ? theme.primaryColor.withOpacity(0.2)
+                      : theme.cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SelectableText(
+                      message.text,
+                      style: TextStyle(
+                        color: theme.textTheme.bodyLarge?.color,
+                        fontSize: 15,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatTime(message.timestamp),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.disabledColor,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -350,7 +385,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: Colors.grey.shade700,
+                color: theme.disabledColor,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: const Icon(Icons.person, color: Colors.white, size: 18),
@@ -359,6 +394,21 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         ],
       ),
     );
+  }
+
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+    
+    if (diff.inSeconds < 60) {
+      return 'Just now';
+    } else if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}m ago';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours}h ago';
+    } else {
+      return '${time.hour}:${time.minute.toString().padLeft(2, '0')}';
+    }
   }
 }
 
