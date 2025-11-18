@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   final String _baseUrl = "https://ai-keyboard-backend.vishwajeetadkine705.workers.dev";
-
+  
   // Scan text content for threats
   Future<Map<String, dynamic>> scanContent(String content) async {
     try {
@@ -18,7 +18,7 @@ class ApiService {
       throw Exception('Failed to scan content: $e');
     }
   }
-
+  
   // Analyze text (separate endpoint)
   Future<Map<String, dynamic>> analyzeText(String text) async {
     try {
@@ -32,7 +32,7 @@ class ApiService {
       throw Exception('Failed to analyze text: $e');
     }
   }
-
+  
   // Upload and analyze image
   Future<Map<String, dynamic>> uploadImage(String endpoint, File imageFile) async {
     try {
@@ -47,24 +47,75 @@ class ApiService {
       throw Exception('Failed to upload image: $e');
     }
   }
-
-  // Send chat message
+  
+  // Send chat message - FIXED VERSION
   Future<Map<String, dynamic>> sendChatMessage(String message, {List<Map<String, dynamic>>? history}) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/chat/message'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'message': message,
-          'conversationHistory': history ?? []
+          'content': message,  // Changed from 'message' to 'content'
+          'history': history ?? []  // Changed from 'conversationHistory' to 'history'
         }),
+      ).timeout(
+        const Duration(seconds: 30),  // Added timeout
+        onTimeout: () {
+          throw Exception('Request timed out. Please try again.');
+        },
       );
       return _handleResponse(response);
     } catch (e) {
+      if (e is SocketException) {
+        throw Exception('No internet connection. Please check your network.');
+      } else if (e.toString().contains('timed out')) {
+        throw Exception('Request timed out. Please try again.');
+      }
       throw Exception('Failed to send message: $e');
     }
   }
-
+  
+  // Send streaming chat message (SSE)
+  Stream<String> sendStreamingChatMessage(String message, {List<Map<String, dynamic>>? history}) async* {
+    try {
+      final request = http.Request('POST', Uri.parse('$_baseUrl/chat/stream'));
+      request.headers['Content-Type'] = 'application/json';
+      request.body = jsonEncode({
+        'content': message,
+        'history': history ?? []
+      });
+      
+      final streamedResponse = await request.send();
+      
+      if (streamedResponse.statusCode >= 200 && streamedResponse.statusCode < 300) {
+        await for (var chunk in streamedResponse.stream.transform(utf8.decoder)) {
+          // Parse SSE format: "data: {json}\n\n"
+          final lines = chunk.split('\n');
+          for (var line in lines) {
+            if (line.startsWith('data: ')) {
+              final data = line.substring(6); // Remove "data: " prefix
+              if (data.trim().isNotEmpty && data != '[DONE]') {
+                try {
+                  final json = jsonDecode(data);
+                  if (json['text'] != null) {
+                    yield json['text'];
+                  }
+                } catch (e) {
+                  // Skip invalid JSON chunks
+                  continue;
+                }
+              }
+            }
+          }
+        }
+      } else {
+        throw Exception('Stream request failed with status: ${streamedResponse.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Failed to stream message: $e');
+    }
+  }
+  
   // Check URL safety
   Future<Map<String, dynamic>> checkUrl(String url) async {
     try {
@@ -78,7 +129,7 @@ class ApiService {
       throw Exception('Failed to check URL: $e');
     }
   }
-
+  
   // Generic GET request
   Future<dynamic> get(String endpoint) async {
     try {
@@ -88,7 +139,7 @@ class ApiService {
       throw Exception('GET request failed: $e');
     }
   }
-
+  
   // Generic POST request
   Future<dynamic> post(String endpoint, Map<String, dynamic> data) async {
     try {
@@ -102,7 +153,7 @@ class ApiService {
       throw Exception('POST request failed: $e');
     }
   }
-
+  
   // Response handler
   dynamic _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
