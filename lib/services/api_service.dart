@@ -39,8 +39,7 @@ class ApiService {
   // -------------------------------
   // 3. POST request
   // -------------------------------
-  Future<dynamic> post(
-      String endpoint, Map<String, dynamic> data) async {
+  Future<dynamic> post(String endpoint, Map<String, dynamic> data) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/$endpoint'),
@@ -64,7 +63,7 @@ class ApiService {
 
       // Attach image file
       request.files.add(await http.MultipartFile.fromPath(
-        'image',       // <-- backend must expect form field "image"
+        'image', // <-- backend must expect form field "image"
         imageFile.path,
       ));
 
@@ -80,4 +79,26 @@ class ApiService {
 
   // -------------------------------
   // 5. Unified response handler
-  // ----
+  // -------------------------------
+  dynamic _handleResponse(http.Response response) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      // Success
+      try {
+        return jsonDecode(response.body);
+      } catch (e) {
+        // If response is not JSON, return raw body
+        return response.body;
+      }
+    } else {
+      // Error
+      String errorMessage = 'Request failed with status: ${response.statusCode}';
+      try {
+        final errorBody = jsonDecode(response.body);
+        errorMessage = errorBody['error'] ?? errorBody['message'] ?? errorMessage;
+      } catch (e) {
+        // If error response is not JSON, use status code
+      }
+      throw Exception(errorMessage);
+    }
+  }
+}
