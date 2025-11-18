@@ -5,6 +5,103 @@ import 'package:http/http.dart' as http;
 class ApiService {
   final String _baseUrl = "https://ai-keyboard-backend.vishwajeetadkine705.workers.dev";
   
+  // Test backend connection
+  Future<bool> testConnection() async {
+    try {
+      print('🧪 Testing backend connection...');
+      final response = await http.get(Uri.parse(_baseUrl)).timeout(
+        const Duration(seconds: 10),
+      );
+      
+      print('✅ Backend status: ${response.statusCode}');
+      print('📄 Response: ${response.body}');
+      
+      return response.statusCode == 200;
+    } catch (e) {
+      print('❌ Connection test failed: $e');
+      return false;
+    }
+  }
+  
+  // Send chat message - COMPLETELY REWRITTEN
+  Future<Map<String, dynamic>> sendChatMessage(String message, {List<Map<String, dynamic>>? history}) async {
+    print('\n========== CHAT REQUEST START ==========');
+    print('🔵 Sending message: $message');
+    print('📍 Backend URL: $_baseUrl/chat/message');
+    
+    try {
+      // Build the request
+      final url = Uri.parse('$_baseUrl/chat/message');
+      print('🌐 Full URL: $url');
+      
+      // Prepare the body
+      final body = {
+        'message': message,
+        'conversationHistory': history ?? []
+      };
+      
+      final bodyJson = jsonEncode(body);
+      print('📦 Request body: $bodyJson');
+      
+      // Make the request
+      print('⏳ Sending POST request...');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: bodyJson,
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          print('⏱️ Request timed out!');
+          throw TimeoutException('Request took too long');
+        },
+      );
+      
+      print('📨 Response received!');
+      print('📊 Status code: ${response.statusCode}');
+      print('📄 Response body: ${response.body}');
+      print('========== CHAT REQUEST END ==========\n');
+      
+      // Handle the response
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data;
+      } else {
+        // Try to parse error
+        try {
+          final errorData = jsonDecode(response.body);
+          throw Exception(errorData['error'] ?? errorData['message'] ?? 'Server error: ${response.statusCode}');
+        } catch (e) {
+          throw Exception('Server error: ${response.statusCode} - ${response.body}');
+        }
+      }
+      
+    } on SocketException catch (e) {
+      print('❌ SocketException: No internet or DNS failed');
+      print('   Details: $e');
+      throw Exception('No internet connection. Please check your network and try again.');
+    } on TimeoutException catch (e) {
+      print('❌ TimeoutException: Request took too long');
+      print('   Details: $e');
+      throw Exception('Request timed out. The server is taking too long to respond.');
+    } on FormatException catch (e) {
+      print('❌ FormatException: Invalid JSON response');
+      print('   Details: $e');
+      throw Exception('Invalid response from server. Please try again.');
+    } on http.ClientException catch (e) {
+      print('❌ ClientException: HTTP client error');
+      print('   Details: $e');
+      throw Exception('Network error. Please check your connection.');
+    } catch (e) {
+      print('❌ Unexpected error: ${e.runtimeType}');
+      print('   Details: $e');
+      throw Exception('Unexpected error: ${e.toString()}');
+    }
+  }
+  
   // Scan text content for threats
   Future<Map<String, dynamic>> scanContent(String content) async {
     try {
@@ -48,75 +145,14 @@ class ApiService {
     }
   }
   
-  // Send chat message - WITH DEBUGGING
-  Future<Map<String, dynamic>> sendChatMessage(String message, {List<Map<String, dynamic>>? history}) async {
-    print('🔵 Starting chat request...');
-    print('📍 URL: $_baseUrl/chat/message');
-    print('💬 Message: $message');
-    
-    try {
-      final uri = Uri.parse('$_baseUrl/chat/message');
-      print('🌐 Parsed URI: $uri');
-      
-      final requestBody = jsonEncode({
-        'message': message,
-        'conversationHistory': history ?? []
-      });
-      print('📦 Request body: $requestBody');
-      
-      final response = await http.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: requestBody,
-      ).timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
-          print('⏱️ Request timed out after 30 seconds');
-          throw Exception('Request timed out. Please try again.');
-        },
-      );
-      
-      print('✅ Response received!');
-      print('📊 Status Code: ${response.statusCode}');
-      print('📄 Response body: ${response.body}');
-      
-      return _handleResponse(response);
-      
-    } on SocketException catch (e) {
-      print('❌ SocketException: $e');
-      print('🔍 This usually means DNS resolution failed or no internet');
-      throw Exception('Cannot connect to server. Please check your internet connection.');
-    } on http.ClientException catch (e) {
-      print('❌ ClientException: $e');
-      throw Exception('Network error. Please try again.');
-    } on FormatException catch (e) {
-      print('❌ FormatException: $e');
-      throw Exception('Invalid server response format.');
-    } catch (e) {
-      print('❌ Unknown error: $e');
-      print('❌ Error type: ${e.runtimeType}');
-      
-      if (e.toString().contains('timed out')) {
-        throw Exception('Request timed out. Please try again.');
-      } else if (e.toString().contains('Failed host lookup')) {
-        throw Exception('Cannot reach server. Check your internet connection.');
-      }
-      
-      throw Exception('Failed to send message: ${e.toString()}');
-    }
-  }
-  
   // Send streaming chat message (SSE)
   Stream<String> sendStreamingChatMessage(String message, {List<Map<String, dynamic>>? history}) async* {
     try {
       final request = http.Request('POST', Uri.parse('$_baseUrl/chat/stream'));
       request.headers['Content-Type'] = 'application/json';
       request.body = jsonEncode({
-        'message': message,  // Correct: backend expects 'message'
-        'conversationHistory': history ?? []  // Correct: backend expects 'conversationHistory'
+        'message': message,
+        'conversationHistory': history ?? []
       });
       
       final streamedResponse = await request.send();
@@ -208,4 +244,12 @@ class ApiService {
       throw Exception(errorMessage);
     }
   }
+}
+
+class TimeoutException implements Exception {
+  final String message;
+  TimeoutException(this.message);
+  
+  @override
+  String toString() => message;
 }
