@@ -12,7 +12,7 @@ class VoiceControlScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Voice Control')),
-        drawer: const AppDrawer(),
+        drawer: AppDrawer(),
         body: const Center(child: Text('Voice Control Screen')),
       );
 }
@@ -22,7 +22,7 @@ class AutoTaskScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Auto Task')),
-        drawer: const AppDrawer(),
+        drawer: AppDrawer(),
         body: const Center(child: Text('Auto Task Screen')),
       );
 }
@@ -32,7 +32,7 @@ class DigitalBodyguardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Digital Bodyguard')),
-        drawer: const AppDrawer(),
+        drawer: AppDrawer(),
         body: const Center(child: Text('Digital Bodyguard Screen')),
       );
 }
@@ -77,7 +77,7 @@ class AppRouter {
       default:
         screen = Scaffold(
           appBar: AppBar(),
-          drawer: const AppDrawer(),
+          drawer: AppDrawer(),
           body: Center(
             child: Text('No route defined for ${settings.name}'),
           ),
