@@ -19,15 +19,20 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   @override
   void initState() {
     super.initState();
+    // Add welcome message
     _addMessage(
-      'Hello! I\'m Stremini AI, your intelligent assistant. How can I help you today?',
+      "Hello! I'm Stremini AI. How can I help you today?",
       isUser: false,
     );
   }
 
   void _addMessage(String text, {required bool isUser}) {
     setState(() {
-      _messages.add(ChatMessage(text: text, isUser: isUser));
+      _messages.add(ChatMessage(
+        text: text,
+        isUser: isUser,
+        timestamp: DateTime.now(),
+      ));
     });
     _scrollToBottom();
   }
@@ -54,9 +59,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Build conversation history
+      // Build conversation history (exclude welcome message)
       final history = _messages
-          .where((msg) => msg.text != 'Hello! I\'m Stremini AI, your intelligent assistant. How can I help you today?')
+          .where((msg) => msg.text != "Hello! I'm Stremini AI. How can I help you today?")
           .map((msg) => {
                 'role': msg.isUser ? 'user' : 'assistant',
                 'content': msg.text,
@@ -67,14 +72,66 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       
       if (response['response'] != null) {
         _addMessage(response['response'], isUser: false);
+      } else if (response['text'] != null) {
+        _addMessage(response['text'], isUser: false);
       } else {
         _addMessage('Sorry, I couldn\'t process that request.', isUser: false);
       }
     } catch (e) {
-      _addMessage('Error: ${e.toString().replaceFirst("Exception: ", "")}', isUser: false);
+      String errorMsg = e.toString().replaceFirst("Exception: ", "");
+      _addMessage('Error: $errorMsg', isUser: false);
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  void _showAttachmentOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Camera'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Camera feature coming soon!')),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo),
+              title: const Text('Photo'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Photo feature coming soon!')),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.description),
+              title: const Text('Document'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Document feature coming soon!')),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -87,23 +144,35 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF1C1C1E),
       appBar: AppBar(
-        title: const Text('Stremini AI Chat'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () {
-              setState(() {
-                _messages.clear();
-                _addMessage(
-                  'Hello! I\'m Stremini AI, your intelligent assistant. How can I help you today?',
-                  isUser: false,
-                );
-              });
-            },
-            tooltip: 'Clear chat',
-          ),
-        ],
+        backgroundColor: const Color(0xFF2C2C2E),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 35,
+              height: 35,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0A84FF),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.bolt, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Stremini',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
       body: Column(
         children: [
@@ -116,7 +185,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                       children: const [
                         Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
                         SizedBox(height: 16),
-                        Text('Start a conversation!', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                        Text(
+                          'Start a conversation!',
+                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                        ),
                       ],
                     ),
                   )
@@ -133,9 +205,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
           // Loading indicator
           if (_isLoading)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              alignment: Alignment.centerLeft,
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: const [
                   SizedBox(
                     width: 20,
@@ -143,20 +217,26 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                   SizedBox(width: 12),
-                  Text('Thinking...', style: TextStyle(fontStyle: FontStyle.italic)),
+                  Text(
+                    'Thinking...',
+                    style: TextStyle(
+                      fontStyle: FontStyle.italic,
+                      color: Colors.grey,
+                    ),
+                  ),
                 ],
               ),
             ),
 
           // Input field
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
+              color: const Color(0xFF2C2C2E),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 4,
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
               ],
@@ -164,27 +244,58 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             child: SafeArea(
               child: Row(
                 children: [
+                  // Attachment button
+                  IconButton(
+                    icon: const Icon(Icons.add, size: 28),
+                    onPressed: _showAttachmentOptions,
+                    color: Colors.white70,
+                  ),
+                  const SizedBox(width: 8),
+                  
+                  // Text input
                   Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      decoration: InputDecoration(
-                        hintText: 'Type your message...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF3C3C3E),
+                        borderRadius: BorderRadius.circular(24),
                       ),
-                      maxLines: null,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _sendMessage(),
-                      enabled: !_isLoading,
+                      child: TextField(
+                        controller: _messageController,
+                        decoration: const InputDecoration(
+                          hintText: 'Ask anything...',
+                          hintStyle: TextStyle(color: Colors.white38),
+                          border: InputBorder.none,
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                        maxLines: null,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => _sendMessage(),
+                        enabled: !_isLoading,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  FloatingActionButton(
+                  const SizedBox(width: 8),
+                  
+                  // Voice button
+                  IconButton(
+                    icon: const Icon(Icons.mic, size: 28),
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Voice input coming soon!')),
+                      );
+                    },
+                    color: Colors.white70,
+                  ),
+                  
+                  // Send button
+                  IconButton(
+                    icon: Icon(
+                      Icons.send,
+                      size: 28,
+                      color: _isLoading ? Colors.grey : const Color(0xFF0A84FF),
+                    ),
                     onPressed: _isLoading ? null : _sendMessage,
-                    mini: true,
-                    child: const Icon(Icons.send),
                   ),
                 ],
               ),
@@ -203,35 +314,46 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!message.isUser) ...[
-            CircleAvatar(
-              backgroundColor: Theme.of(context).primaryColor,
-              child: const Icon(Icons.smart_toy, color: Colors.white, size: 20),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0A84FF),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.bolt, color: Colors.white, size: 18),
             ),
             const SizedBox(width: 12),
           ],
           Flexible(
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: message.isUser
-                    ? Theme.of(context).primaryColor
-                    : Theme.of(context).cardColor,
+                    ? const Color(0xFF3C3C3E)
+                    : const Color(0xFF2C2C2E),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: SelectableText(
                 message.text,
-                style: TextStyle(
-                  color: message.isUser ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
+                style: const TextStyle(
+                  color: Colors.white,
                   fontSize: 15,
+                  height: 1.4,
                 ),
               ),
             ),
           ),
           if (message.isUser) ...[
             const SizedBox(width: 12),
-            CircleAvatar(
-              backgroundColor: Colors.grey.shade700,
-              child: const Icon(Icons.person, color: Colors.white, size: 20),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade700,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.person, color: Colors.white, size: 18),
             ),
           ],
         ],
@@ -243,6 +365,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 class ChatMessage {
   final String text;
   final bool isUser;
+  final DateTime timestamp;
 
-  ChatMessage({required this.text, required this.isUser});
+  ChatMessage({
+    required this.text,
+    required this.isUser,
+    required this.timestamp,
+  });
 }
