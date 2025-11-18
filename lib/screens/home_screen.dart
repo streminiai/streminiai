@@ -33,7 +33,7 @@ class HomeScreen extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pushNamed(context, AppRouter.chat); // Changed from analyzer to chat
+                      Navigator.pushNamed(context, AppRouter.chat); // NOT analyzer!
                   },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -65,7 +65,7 @@ class HomeScreen extends StatelessWidget {
                 title: 'Smart Chatbot',
                 subtitle: 'Engage in intelligent conversations',
                 onTap: () {
-                  Navigator.pushNamed(context, AppRouter.chat); // CHAT, not analyzer
+                  Navigator.pushNamed(context, AppRouter.chat); // NOT analyzer!
                 },
               ),
               
