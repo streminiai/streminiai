@@ -29,9 +29,19 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () {
-                   Navigator.pushNamed(context, AppRouter.analyzer);
+                   Navigator.pushNamed(context, AppRouter.chat);
                 },
-                child: const Text('Quick Chat'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.chat_bubble),
+                    SizedBox(width: 8),
+                    Text('Start Chat'),
+                  ],
+                ),
               ),
               const SizedBox(height: 32),
 
@@ -52,18 +62,18 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 16),
               FeatureCard(
                 icon: Icons.chat_bubble_outline,
-                title: 'Smart Chatbot',
-                subtitle: 'Engage in intelligent conversations',
+                title: 'AI Chatbot',
+                subtitle: 'Intelligent conversations with Stremini AI',
                 onTap: () {
-                   Navigator.pushNamed(context, AppRouter.analyzer);
+                   Navigator.pushNamed(context, AppRouter.chat);
                 },
               ),
               FeatureCard(
-                icon: Icons.security_outlined,
-                title: 'Digital Bodyguard',
-                subtitle: 'Real-time scan and phishing detection',
+                icon: Icons.document_scanner_outlined,
+                title: 'Content Analyzer',
+                subtitle: 'Scan text and images for threats',
                 onTap: () {
-                  Navigator.pushNamed(context, AppRouter.bodyguard);
+                  Navigator.pushNamed(context, AppRouter.analyzer);
                 },
               ),
               FeatureCard(
@@ -75,14 +85,22 @@ class HomeScreen extends StatelessWidget {
                 },
               ),
               FeatureCard(
-                icon: Icons.document_scanner_outlined,
-                title: 'Content Analyzer',
-                subtitle: 'Analyze text and messages',
+                icon: Icons.security_outlined,
+                title: 'Digital Bodyguard',
+                subtitle: 'Real-time protection and monitoring',
                 onTap: () {
-                  Navigator.pushNamed(context, AppRouter.analyzer);
+                  Navigator.pushNamed(context, AppRouter.bodyguard);
                 },
               ),
-               FeatureCard(
+              FeatureCard(
+                icon: Icons.keyboard_alt_outlined,
+                title: 'Custom Keyboard',
+                subtitle: 'AI-powered typing assistance',
+                onTap: () {
+                  Navigator.pushNamed(context, AppRouter.keyboard);
+                },
+              ),
+              FeatureCard(
                 icon: Icons.task_alt_outlined,
                 title: 'Auto Task',
                 subtitle: 'Automate your daily tasks',
