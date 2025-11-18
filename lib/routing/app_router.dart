@@ -4,7 +4,7 @@ import 'package:stremniapp/screens/screen_analyzer_screen.dart';
 import 'package:stremniapp/screens/system_overlay_screen.dart';
 import 'package:stremniapp/screens/custom_keyboard_screen.dart';
 import 'package:stremniapp/screens/chatbot_screen.dart';
-import 'package:stremniapp/widgets/app_drawer.dart';
+import 'package:stremniapp/routing/app_drawer.dart';
 
 // Placeholder screens for other features
 class VoiceControlScreen extends StatelessWidget {
