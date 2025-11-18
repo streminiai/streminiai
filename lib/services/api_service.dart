@@ -48,30 +48,64 @@ class ApiService {
     }
   }
   
-  // Send chat message - FIXED VERSION
+  // Send chat message - WITH DEBUGGING
   Future<Map<String, dynamic>> sendChatMessage(String message, {List<Map<String, dynamic>>? history}) async {
+    print('🔵 Starting chat request...');
+    print('📍 URL: $_baseUrl/chat/message');
+    print('💬 Message: $message');
+    
     try {
+      final uri = Uri.parse('$_baseUrl/chat/message');
+      print('🌐 Parsed URI: $uri');
+      
+      final requestBody = jsonEncode({
+        'message': message,
+        'conversationHistory': history ?? []
+      });
+      print('📦 Request body: $requestBody');
+      
       final response = await http.post(
-        Uri.parse('$_baseUrl/chat/message'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'message': message,  // Correct: backend expects 'message'
-          'conversationHistory': history ?? []  // Correct: backend expects 'conversationHistory'
-        }),
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: requestBody,
       ).timeout(
-        const Duration(seconds: 30),  // Added timeout
+        const Duration(seconds: 30),
         onTimeout: () {
+          print('⏱️ Request timed out after 30 seconds');
           throw Exception('Request timed out. Please try again.');
         },
       );
+      
+      print('✅ Response received!');
+      print('📊 Status Code: ${response.statusCode}');
+      print('📄 Response body: ${response.body}');
+      
       return _handleResponse(response);
+      
+    } on SocketException catch (e) {
+      print('❌ SocketException: $e');
+      print('🔍 This usually means DNS resolution failed or no internet');
+      throw Exception('Cannot connect to server. Please check your internet connection.');
+    } on http.ClientException catch (e) {
+      print('❌ ClientException: $e');
+      throw Exception('Network error. Please try again.');
+    } on FormatException catch (e) {
+      print('❌ FormatException: $e');
+      throw Exception('Invalid server response format.');
     } catch (e) {
-      if (e is SocketException) {
-        throw Exception('No internet connection. Please check your network.');
-      } else if (e.toString().contains('timed out')) {
+      print('❌ Unknown error: $e');
+      print('❌ Error type: ${e.runtimeType}');
+      
+      if (e.toString().contains('timed out')) {
         throw Exception('Request timed out. Please try again.');
+      } else if (e.toString().contains('Failed host lookup')) {
+        throw Exception('Cannot reach server. Check your internet connection.');
       }
-      throw Exception('Failed to send message: $e');
+      
+      throw Exception('Failed to send message: ${e.toString()}');
     }
   }
   
