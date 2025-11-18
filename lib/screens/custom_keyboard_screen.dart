@@ -1,6 +1,5 @@
-
 import 'package:flutter/material.dart';
-import 'package:stremniapp/widgets/app_drawer.dart';
+import 'package:stremniapp/routing/app_drawer.dart';
 
 class CustomKeyboardScreen extends StatefulWidget {
   const CustomKeyboardScreen({Key? key}) : super(key: key);
@@ -43,7 +42,7 @@ class _CustomKeyboardScreenState extends State<CustomKeyboardScreen> {
       appBar: AppBar(
         title: const Text('Custom Keyboard UI'),
       ),
-      drawer: const AppDrawer(),
+      drawer: AppDrawer(),
       body: Column(
         children: [
           Expanded(
