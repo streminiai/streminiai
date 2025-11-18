@@ -1,25 +1,25 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   AppTheme._();
 
-  // New color palette from Figma
   static const Color backgroundColor = Color(0xFF1C1C1E);
   static const Color scaffoldBackgroundColor = Color(0xFF1C1C1E);
   static const Color primaryColor = Color(0xFF0A84FF);
   static const Color cardColor = Color(0xFF2C2C2E);
 
   static final ThemeData darkTheme = ThemeData(
+    useMaterial3: true,
     brightness: Brightness.dark,
     primaryColor: primaryColor,
     scaffoldBackgroundColor: scaffoldBackgroundColor,
+
     colorScheme: const ColorScheme.dark(
       primary: primaryColor,
       surface: cardColor,
     ),
-    // Using Google Fonts for the text theme
+
     textTheme: GoogleFonts.interTextTheme(
       const TextTheme(
         displayLarge: TextStyle(fontSize: 34, fontWeight: FontWeight.bold, color: Colors.white),
@@ -29,20 +29,22 @@ class AppTheme {
         labelLarge: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
       ),
     ),
-    // Component Themes
+
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
       titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white),
       iconTheme: IconThemeData(color: primaryColor),
     ),
-    cardTheme: CardTheme(
+
+    cardTheme: CardThemeData(
       elevation: 0,
       color: cardColor,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16.0),
+        borderRadius: BorderRadius.circular(16),
       ),
     ),
+
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: primaryColor,
@@ -54,18 +56,17 @@ class AppTheme {
         textStyle: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w600),
       ),
     ),
+
     switchTheme: SwitchThemeData(
-      thumbColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
-        if (states.contains(WidgetState.selected)) {
-          return primaryColor;
-        }
-        return null;
+      thumbColor: MaterialStateProperty.resolveWith((states) {
+        if (states.contains(MaterialState.selected)) return primaryColor;
+        return Colors.white;
       }),
-      trackColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
-        if (states.contains(WidgetState.selected)) {
+      trackColor: MaterialStateProperty.resolveWith((states) {
+        if (states.contains(MaterialState.selected)) {
           return primaryColor.withOpacity(0.5);
         }
-        return null;
+        return Colors.grey;
       }),
     ),
   );
