@@ -27,20 +27,18 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 8),
               Text('Your AI assistant is ready', style: theme.textTheme.bodyMedium),
               const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () {
-                   Navigator.pushNamed(context, AppRouter.chat);
-                },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.chat_bubble),
-                    SizedBox(width: 8),
-                    Text('Start Chat'),
-                  ],
+              
+              // Quick Chat Button - THIS IS THE FIX
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, AppRouter.chat); // Changed from analyzer to chat
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: const Text('Quick Chat', style: TextStyle(fontSize: 16)),
                 ),
               ),
               const SizedBox(height: 32),
@@ -60,22 +58,28 @@ class HomeScreen extends StatelessWidget {
               // AI Features Section
               Text('AI Features', style: theme.textTheme.titleLarge),
               const SizedBox(height: 16),
+              
+              // Smart Chatbot - Goes to CHAT screen
               FeatureCard(
                 icon: Icons.chat_bubble_outline,
-                title: 'AI Chatbot',
-                subtitle: 'Intelligent conversations with Stremini AI',
+                title: 'Smart Chatbot',
+                subtitle: 'Engage in intelligent conversations',
                 onTap: () {
-                   Navigator.pushNamed(context, AppRouter.chat);
+                  Navigator.pushNamed(context, AppRouter.chat); // CHAT, not analyzer
                 },
               ),
+              
+              // Digital Bodyguard
               FeatureCard(
-                icon: Icons.document_scanner_outlined,
-                title: 'Content Analyzer',
-                subtitle: 'Scan text and images for threats',
+                icon: Icons.security_outlined,
+                title: 'Digital Bodyguard',
+                subtitle: 'Real-time scan and phishing detection',
                 onTap: () {
-                  Navigator.pushNamed(context, AppRouter.analyzer);
+                  Navigator.pushNamed(context, AppRouter.bodyguard);
                 },
               ),
+              
+              // Screen Analyzer
               FeatureCard(
                 icon: Icons.shield_outlined,
                 title: 'Screen Analyzer (System-wide)',
@@ -84,22 +88,18 @@ class HomeScreen extends StatelessWidget {
                   Navigator.pushNamed(context, AppRouter.systemOverlay);
                 },
               ),
+              
+              // Content Analyzer - Goes to ANALYZER screen
               FeatureCard(
-                icon: Icons.security_outlined,
-                title: 'Digital Bodyguard',
-                subtitle: 'Real-time protection and monitoring',
+                icon: Icons.document_scanner_outlined,
+                title: 'Content Analyzer',
+                subtitle: 'Analyze text and messages',
                 onTap: () {
-                  Navigator.pushNamed(context, AppRouter.bodyguard);
+                  Navigator.pushNamed(context, AppRouter.analyzer); // This goes to analyzer
                 },
               ),
-              FeatureCard(
-                icon: Icons.keyboard_alt_outlined,
-                title: 'Custom Keyboard',
-                subtitle: 'AI-powered typing assistance',
-                onTap: () {
-                  Navigator.pushNamed(context, AppRouter.keyboard);
-                },
-              ),
+              
+              // Auto Task
               FeatureCard(
                 icon: Icons.task_alt_outlined,
                 title: 'Auto Task',
