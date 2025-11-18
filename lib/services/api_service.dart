@@ -55,8 +55,8 @@ class ApiService {
         Uri.parse('$_baseUrl/chat/message'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'content': message,  // Changed from 'message' to 'content'
-          'history': history ?? []  // Changed from 'conversationHistory' to 'history'
+          'message': message,  // Correct: backend expects 'message'
+          'conversationHistory': history ?? []  // Correct: backend expects 'conversationHistory'
         }),
       ).timeout(
         const Duration(seconds: 30),  // Added timeout
@@ -81,8 +81,8 @@ class ApiService {
       final request = http.Request('POST', Uri.parse('$_baseUrl/chat/stream'));
       request.headers['Content-Type'] = 'application/json';
       request.body = jsonEncode({
-        'content': message,
-        'history': history ?? []
+        'message': message,  // Correct: backend expects 'message'
+        'conversationHistory': history ?? []  // Correct: backend expects 'conversationHistory'
       });
       
       final streamedResponse = await request.send();
