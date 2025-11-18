@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:stremniapp/routing/app_router.dart';
 import 'package:stremniapp/widgets/app_drawer.dart';
@@ -23,7 +22,7 @@ class HomeScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 16),
-              // 2.a) Greeting Section
+              // Greeting Section
               Text('Good afternoon! 👋', style: theme.textTheme.displayLarge?.copyWith(fontSize: 28)),
               const SizedBox(height: 8),
               Text('Your AI assistant is ready', style: theme.textTheme.bodyMedium),
@@ -36,7 +35,7 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              // 2.b) Stats Section
+              // Stats Section
               Row(
                 children: const [
                   _StatBlock(value: '24', label: 'Threats Blocked'),
@@ -48,7 +47,7 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              // 2.c) AI Features Section
+              // AI Features Section
               Text('AI Features', style: theme.textTheme.titleLarge),
               const SizedBox(height: 16),
               FeatureCard(
@@ -68,9 +67,17 @@ class HomeScreen extends StatelessWidget {
                 },
               ),
               FeatureCard(
+                icon: Icons.shield_outlined,
+                title: 'Screen Analyzer (System-wide)',
+                subtitle: 'Floating button to analyze any screen',
+                onTap: () {
+                  Navigator.pushNamed(context, AppRouter.systemOverlay);
+                },
+              ),
+              FeatureCard(
                 icon: Icons.document_scanner_outlined,
-                title: 'Screen Analyzer',
-                subtitle: 'Analyze content from your screen',
+                title: 'Content Analyzer',
+                subtitle: 'Analyze text and messages',
                 onTap: () {
                   Navigator.pushNamed(context, AppRouter.analyzer);
                 },
