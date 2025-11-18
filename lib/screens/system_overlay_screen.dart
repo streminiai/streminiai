@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:stremniapp/services/api_service.dart';
-import 'package:stremniapp/widgets/app_drawer.dart';
+import 'package:stremniapp/routing/app_drawer.dart';
 
 class SystemOverlayScreen extends StatefulWidget {
   const SystemOverlayScreen({Key? key}) : super(key: key);
@@ -184,7 +184,7 @@ class _SystemOverlayScreenState extends State<SystemOverlayScreen> {
       appBar: AppBar(
         title: const Text('Screen Analyzer'),
       ),
-      drawer: const AppDrawer(),
+      drawer: AppDrawer(),
       body: Screenshot(
         controller: _screenshotController,
         child: SingleChildScrollView(
