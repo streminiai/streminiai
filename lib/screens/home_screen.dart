@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stremniapp/routing/app_router.dart';
-import 'package:stremniapp/widgets/app_drawer.dart';
+import 'package:stremniapp/routing/app_drawer.dart'; // ✅ CHANGED: Import from routing, not widgets
 import 'package:stremniapp/widgets/feature_card.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -28,12 +28,12 @@ class HomeScreen extends StatelessWidget {
               Text('Your AI assistant is ready', style: theme.textTheme.bodyMedium),
               const SizedBox(height: 24),
               
-              // Quick Chat Button - THIS IS THE FIX
+              // Quick Chat Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                      Navigator.pushNamed(context, AppRouter.chat); // NOT analyzer!
+                      Navigator.pushNamed(context, AppRouter.chat);
                   },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -65,7 +65,7 @@ class HomeScreen extends StatelessWidget {
                 title: 'Smart Chatbot',
                 subtitle: 'Engage in intelligent conversations',
                 onTap: () {
-                  Navigator.pushNamed(context, AppRouter.chat); // NOT analyzer!
+                  Navigator.pushNamed(context, AppRouter.chat);
                 },
               ),
               
@@ -89,13 +89,13 @@ class HomeScreen extends StatelessWidget {
                 },
               ),
               
-              // Content Analyzer - Goes to ANALYZER screen
+              // Content Analyzer
               FeatureCard(
                 icon: Icons.document_scanner_outlined,
                 title: 'Content Analyzer',
                 subtitle: 'Analyze text and messages',
                 onTap: () {
-                  Navigator.pushNamed(context, AppRouter.analyzer); // This goes to analyzer
+                  Navigator.pushNamed(context, AppRouter.analyzer);
                 },
               ),
               
