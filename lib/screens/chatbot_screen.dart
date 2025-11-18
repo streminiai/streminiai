@@ -20,7 +20,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   @override
   void initState() {
     super.initState();
-    // Add welcome message
     _addMessage(
       "Hello! I'm Stremini AI. How can I help you today?",
       isUser: false,
@@ -54,98 +53,61 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     final message = _messageController.text.trim();
     if (message.isEmpty) return;
 
+    // Clear input immediately
     _messageController.clear();
+    
+    // Add user message
     _addMessage(message, isUser: true);
 
+    // Show loading
     setState(() => _isLoading = true);
 
     try {
-      // Build conversation history (exclude welcome message)
-      final history = _messages
-          .where((msg) => msg.text != "Hello! I'm Stremini AI. How can I help you today?")
-          .map((msg) => {
-                'role': msg.isUser ? 'user' : 'assistant',
-                'content': msg.text,
-              })
-          .toList();
-
-      final response = await _apiService.sendChatMessage(message, history: history);
+      print('\n🚀 Sending: $message');
       
-      // Extract response text from various possible formats
-      String responseText = response['response'] ?? 
-                           response['text'] ?? 
-                           response['message'] ??
-                           'Sorry, I couldn\'t process that request.';
+      // SIMPLE: Just send the message, NO history
+      final response = await _apiService.sendChatMessage(message);
       
-      _addMessage(responseText, isUser: false);
+      print('✅ Got response: $response');
+      
+      // Get the AI's reply - try all possible field names
+      String botReply = 'Sorry, I couldn\'t understand that.';
+      
+      if (response is Map<String, dynamic>) {
+        botReply = response['response'] ?? 
+                   response['text'] ?? 
+                   response['message'] ?? 
+                   response['content'] ?? 
+                   response['reply'] ?? 
+                   response.values.firstWhere((v) => v is String, orElse: () => botReply);
+      }
+      
+      print('💬 Bot says: $botReply');
+      
+      // Add bot's response
+      _addMessage(botReply, isUser: false);
+      
     } catch (e) {
-      String errorMsg = e.toString().replaceFirst("Exception: ", "");
-      _showErrorDialog(errorMsg, message);
+      print('❌ ERROR: $e');
+      
+      // Show error in chat
+      _addMessage(
+        '⚠️ Error: ${e.toString().replaceFirst("Exception: ", "")}',
+        isUser: false,
+      );
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  void _showErrorDialog(String error, String originalMessage) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Error'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(error),
-            const SizedBox(height: 16),
-            const Text('Would you like to retry?'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _messageController.text = originalMessage;
-              _sendMessage();
-            },
-            child: const Text('Retry'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _clearChat() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear Chat?'),
-        content: const Text('This will delete all messages in this conversation.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _messages.clear();
-                _addMessage(
-                  "Hello! I'm Stremini AI. How can I help you today?",
-                  isUser: false,
-                );
-              });
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Clear'),
-          ),
-        ],
-      ),
-    );
+    setState(() {
+      _messages.clear();
+      _addMessage(
+        "Hello! I'm Stremini AI. How can I help you today?",
+        isUser: false,
+      );
+    });
   }
 
   @override
@@ -201,31 +163,15 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         children: [
           // Messages list
           Expanded(
-            child: _messages.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.chat_bubble_outline, 
-                             size: 64, 
-                             color: theme.disabledColor),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Start a conversation!',
-                          style: TextStyle(fontSize: 18, color: theme.disabledColor),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final message = _messages[index];
-                      return _buildMessageBubble(message);
-                    },
-                  ),
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(16),
+              itemCount: _messages.length,
+              itemBuilder: (context, index) {
+                final message = _messages[index];
+                return _buildMessageBubble(message);
+              },
+            ),
           ),
 
           // Loading indicator
@@ -272,7 +218,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             child: SafeArea(
               child: Row(
                 children: [
-                  // Text input
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -297,7 +242,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   ),
                   const SizedBox(width: 8),
                   
-                  // Send button
                   IconButton(
                     icon: Icon(
                       Icons.send,
@@ -342,8 +286,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 Clipboard.setData(ClipboardData(text: message.text));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Message copied to clipboard'),
-                    duration: Duration(seconds: 2),
+                    content: Text('Message copied'),
+                    duration: Duration(seconds: 1),
                   ),
                 );
               },
