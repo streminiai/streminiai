@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stremniapp/routing/app_router.dart';
-import 'package:stremniapp/routing/app_drawer.dart'; // ✅ CHANGED: Import from routing, not widgets
+import 'package:stremniapp/routing/app_drawer.dart';
 import 'package:stremniapp/widgets/feature_card.dart';
 
 class HomeScreen extends StatelessWidget {
