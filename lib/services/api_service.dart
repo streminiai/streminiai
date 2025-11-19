@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 
 class ApiService {
@@ -118,6 +119,41 @@ class ApiService {
       throw Exception('Scan failed: $e');
     }
   }
+
+  // Analyze text for security threats
+  Future<Map<String, dynamic>> analyzeText(String text) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/text/analyze-text'),
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: jsonEncode({'text': text}),
+      ).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      throw Exception('Text analysis failed: $e');
+    }
+  }
+
+  // Upload and analyze image
+  Future<Map<String, dynamic>> uploadImage(String endpoint, File imageFile) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$_baseUrl/$endpoint'),
+      );
+      
+      request.files.add(
+        await http.MultipartFile.fromPath('image', imageFile.path),
+      );
+      
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 60));
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      return _handleResponse(response);
+    } catch (e) {
+      throw Exception('Image upload failed: $e');
+    }
+  }
   
   // Generic response handler
   dynamic _handleResponse(http.Response response) {
@@ -138,11 +174,4 @@ class ApiService {
       throw Exception(errorMessage);
     }
   }
-}
-
-class TimeoutException implements Exception {
-  final String message;
-  TimeoutException(this.message);
-  @override
-  String toString() => message;
 }
