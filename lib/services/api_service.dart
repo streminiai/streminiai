@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 class ApiService {
   final String _baseUrl = "https://ai-keyboard-backend.vishwajeetadkine705.workers.dev";
   
-  // SUPER SIMPLE: Just send a message and get a response
+  // FIXED: Better error handling and timeout management
   Future<Map<String, dynamic>> sendChatMessage(String message, {List<Map<String, dynamic>>? history}) async {
     print('\n🚀 SENDING MESSAGE');
     print('📝 Message: $message');
@@ -23,47 +23,84 @@ class ApiService {
       print('📦 Body: $body');
       print('⏳ Sending...');
       
+      // FIXED: Better timeout and headers
       final response = await http.post(
         url,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'User-Agent': 'StreminiApp/1.0',
         },
         body: body,
-      ).timeout(const Duration(seconds: 60));
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw TimeoutException('Request took too long. Please try again.');
+        },
+      );
       
       print('📨 Status: ${response.statusCode}');
       print('📄 Response: ${response.body}');
       
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        try {
+          final decoded = jsonDecode(response.body);
+          return decoded is Map<String, dynamic> ? decoded : {'response': decoded.toString()};
+        } catch (e) {
+          print('⚠️ JSON decode error: $e');
+          // If not JSON, wrap the response
+          return {'response': response.body};
+        }
+      } else if (response.statusCode >= 500) {
+        throw Exception('Server error (${response.statusCode}). Please try again later.');
+      } else if (response.statusCode == 404) {
+        throw Exception('Chat endpoint not found. Check backend configuration.');
       } else {
-        throw Exception('Server returned ${response.statusCode}: ${response.body}');
+        throw Exception('Request failed (${response.statusCode}): ${response.body}');
       }
       
     } on SocketException catch (e) {
-      print('❌ No internet: $e');
-      throw Exception('No internet connection. Check your WiFi/data.');
+      print('❌ Socket error: $e');
+      throw Exception('Cannot reach server. Check your internet connection.');
     } on TimeoutException catch (e) {
       print('❌ Timeout: $e');
-      throw Exception('Request timed out. Server is slow.');
+      throw Exception('Request timed out. Server might be slow.');
+    } on FormatException catch (e) {
+      print('❌ Format error: $e');
+      throw Exception('Invalid response from server.');
     } catch (e) {
-      print('❌ Error: $e');
-      throw Exception('Error: $e');
+      print('❌ Unexpected error: $e');
+      if (e.toString().contains('Connection refused')) {
+        throw Exception('Server refused connection. Backend might be down.');
+      } else if (e.toString().contains('Failed host lookup')) {
+        throw Exception('Cannot find server. Check your internet connection.');
+      }
+      throw Exception('Error: ${e.toString().replaceAll('Exception: ', '')}');
     }
   }
   
-  // Test connection
+  // FIXED: More robust connection test
   Future<bool> testConnection() async {
     try {
-      print('🧪 Testing connection...');
-      final response = await http.get(Uri.parse(_baseUrl)).timeout(
-        const Duration(seconds: 10),
-      );
-      print('✅ Status: ${response.statusCode}');
+      print('🧪 Testing connection to: $_baseUrl');
+      
+      final response = await http.get(
+        Uri.parse(_baseUrl),
+        headers: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+      
+      print('✅ Connection test status: ${response.statusCode}');
+      print('📄 Response: ${response.body}');
+      
       return response.statusCode == 200;
+    } on SocketException catch (e) {
+      print('❌ Socket error in test: $e');
+      return false;
+    } on TimeoutException catch (e) {
+      print('❌ Timeout in test: $e');
+      return false;
     } catch (e) {
-      print('❌ Test failed: $e');
+      print('❌ Test error: $e');
       return false;
     }
   }
@@ -79,7 +116,7 @@ class ApiService {
         'conversationHistory': history ?? []
       });
       
-      final streamedResponse = await request.send();
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 60));
       
       if (streamedResponse.statusCode >= 200 && streamedResponse.statusCode < 300) {
         await for (var chunk in streamedResponse.stream.transform(utf8.decoder)) {
@@ -100,6 +137,8 @@ class ApiService {
             }
           }
         }
+      } else {
+        throw Exception('Streaming failed with status ${streamedResponse.statusCode}');
       }
     } catch (e) {
       throw Exception('Streaming failed: $e');
@@ -111,9 +150,13 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/security/scan-content'),
-        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode({'content': content}),
       ).timeout(const Duration(seconds: 30));
+      
       return _handleResponse(response);
     } catch (e) {
       throw Exception('Scan failed: $e');
@@ -125,9 +168,13 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/text/analyze-text'),
-        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode({'text': text}),
       ).timeout(const Duration(seconds: 30));
+      
       return _handleResponse(response);
     } catch (e) {
       throw Exception('Text analysis failed: $e');
@@ -161,7 +208,7 @@ class ApiService {
       try {
         return jsonDecode(response.body);
       } catch (e) {
-        return response.body;
+        return {'response': response.body};
       }
     } else {
       String errorMessage = 'Error ${response.statusCode}';
