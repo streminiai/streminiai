@@ -1,46 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
+
+
+class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
   const ChatAppBar({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    
     return AppBar(
       backgroundColor: Colors.black,
       elevation: 0,
-      leading: IconButton(
-        icon: const Icon(
-          Icons.menu,
-          color: Colors.white,
+      leading: Builder(
+        builder: (ctx) => IconButton(
+          icon: const Icon(
+            Icons.menu,
+            color: Colors.white,
+          ),
+          onPressed: () {
+            Scaffold.of(ctx).openDrawer();
+          },
         ),
-        onPressed: () {
-          // TODO: Implement menu functionality
-        },
       ),
       title: Row(
         children: [
           Container(
-            width: 24,
-            height: 24,
-            decoration: const BoxDecoration(
-              color: Colors.blue,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.flash_on,
-              color: Colors.white,
-              size: 16,
-            ),
-          ),
+              width: 24,
+              height: 24,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+              ),
+              child: Image.asset(
+                'assets/logo.jpg',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const Icon(
+                  Icons.broken_image,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              )),
           const SizedBox(width: 8),
           const Text(
-            'Stremini AI',
+            'Stremini',
             style: TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
           ),
+          const Spacer(),
+          // Toggle button for chat icon visibility
+         
         ],
       ),
     );

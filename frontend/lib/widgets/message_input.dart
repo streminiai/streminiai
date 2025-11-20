@@ -25,6 +25,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     if (text.isNotEmpty) {
       ref.read(chatNotifierProvider.notifier).sendMessage(text);
       _controller.clear();
+      _focusNode.unfocus();
     }
   }
 

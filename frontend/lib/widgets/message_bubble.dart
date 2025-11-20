@@ -20,7 +20,7 @@ class MessageBubble extends StatelessWidget {
           ? Alignment.centerRight
           : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: message.type == MessageType.user
@@ -29,7 +29,9 @@ class MessageBubble extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
         ),
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.7,
+          maxWidth: message.type == MessageType.user
+              ? MediaQuery.of(context).size.width * 0.7
+              : MediaQuery.of(context).size.width * 1,
         ),
         child: Text(
           message.text,
@@ -46,7 +48,7 @@ class MessageBubble extends StatelessWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: SizedBox(
           height: 500,

@@ -1,16 +1,18 @@
 import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/message_model.dart';
 import '../services/api_service.dart';
 
 class ChatNotifier extends AsyncNotifier<List<Message>> {
+  // 1. Define the constant ID here to avoid typos
+  static const String _initialGreetingId = 'initial_greeting';
+
   @override
   FutureOr<List<Message>> build() {
-    // initial chat message from the bot
     return [
       Message(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        // 2. Use the constant ID here
+        id: _initialGreetingId,
         text: "Hello! I'm Stremini AI. How can I help you today?",
         type: MessageType.bot,
         timestamp: DateTime.now(),
@@ -18,8 +20,6 @@ class ChatNotifier extends AsyncNotifier<List<Message>> {
     ];
   }
 
-  /// Sends a user message, shows a typing indicator, calls the API service,
-  /// and appends the bot reply (or an error message) to the chat state.
   Future<void> sendMessage(String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
@@ -31,21 +31,21 @@ class ChatNotifier extends AsyncNotifier<List<Message>> {
       timestamp: DateTime.now(),
     );
 
-    // Append user message
+    // 3. Now this filter logic will actually work
     final current = state.value ?? <Message>[];
-    state = AsyncValue.data([...current, userMessage]);
+    final filtered = current.where((m) => m.id != _initialGreetingId).toList();
 
-    // Show typing indicator
+    state = AsyncValue.data([...filtered, userMessage]);
+
     addTypingIndicator();
 
     try {
+      // Ensure apiServiceProvider is defined in your project
       final api = ref.read(apiServiceProvider);
       final reply = await api.sendMessage(trimmed);
 
-      // Remove typing indicator
       removeTypingIndicator();
 
-      // Append bot reply
       final botMessage = Message(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         text: reply,
@@ -53,10 +53,10 @@ class ChatNotifier extends AsyncNotifier<List<Message>> {
         timestamp: DateTime.now(),
       );
 
+      // Re-read state.value to ensure we keep messages added during the await
       final updated = <Message>[...(state.value ?? []), botMessage];
       state = AsyncValue.data(updated);
     } catch (e) {
-      // On error, remove typing and show an error message from the bot
       removeTypingIndicator();
       final errorMessage = Message(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -65,20 +65,22 @@ class ChatNotifier extends AsyncNotifier<List<Message>> {
         timestamp: DateTime.now(),
       );
 
-      final updated = <Message>[...(state.value ?? []), errorMessage];
-      state = AsyncValue.data(updated);
+      state = AsyncValue.data([...(state.value ?? []), errorMessage]);
     }
   }
 
   void addTypingIndicator() {
     final typingMessage = Message(
-      id: 'typing_${DateTime.now().millisecondsSinceEpoch}',
-      text: '',
+      id: 'typing_indicator', // Hardcoding this prevents duplicates easier
+      text: '...',
       type: MessageType.typing,
       timestamp: DateTime.now(),
     );
 
+    // Avoid adding duplicate typing indicators
     final current = state.value ?? <Message>[];
+    if (current.any((m) => m.type == MessageType.typing)) return;
+
     state = AsyncValue.data([...current, typingMessage]);
   }
 
@@ -90,6 +92,5 @@ class ChatNotifier extends AsyncNotifier<List<Message>> {
   }
 }
 
-/// Provider to read/write chat messages.
 final chatNotifierProvider =
     AsyncNotifierProvider<ChatNotifier, List<Message>>(ChatNotifier.new);
