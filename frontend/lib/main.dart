@@ -22,6 +22,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Stremini Chat App',
       // 2. Assign the key to MaterialApp
       navigatorKey: navigatorKey,

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class DraggableChatIcon extends StatefulWidget {
+class DraggableChatIcon extends ConsumerStatefulWidget {
   final Offset position;
   final Function(Offset) onDragEnd;
-  final String overlayMode; // New: external state drives the view
-  final VoidCallback onTapMain; // New: tap to cycle mode (icon <-> radial)
-  final VoidCallback onOpenApp; // New: action to maximize the chat
+  final String overlayMode;
+  final VoidCallback onTapMain;
+  final VoidCallback onOpenApp;
 
   const DraggableChatIcon({
     super.key,
@@ -18,10 +19,10 @@ class DraggableChatIcon extends StatefulWidget {
   });
 
   @override
-  State<DraggableChatIcon> createState() => _DraggableChatIconState();
+  ConsumerState<DraggableChatIcon> createState() => _DraggableChatIconState();
 }
 
-class _DraggableChatIconState extends State<DraggableChatIcon>
+class _DraggableChatIconState extends ConsumerState<DraggableChatIcon>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _expandAnimation;
@@ -45,7 +46,6 @@ class _DraggableChatIconState extends State<DraggableChatIcon>
     _rotateAnimation = Tween<double>(begin: 0.0, end: 0.125)
         .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
-    // Start listener to handle external state changes
     _updateAnimation(widget.overlayMode == "radial");
   }
 
@@ -55,7 +55,6 @@ class _DraggableChatIconState extends State<DraggableChatIcon>
     if (oldWidget.position != widget.position) {
       _currentPosition = widget.position;
     }
-    // Update animation state when the external overlayMode changes
     if (oldWidget.overlayMode != widget.overlayMode) {
       _updateAnimation(widget.overlayMode == "radial");
     }
@@ -82,35 +81,25 @@ class _DraggableChatIconState extends State<DraggableChatIcon>
     final bool isOnRightSide =
         (_currentPosition.dx + (_iconSize / 2)) > (screenWidth / 2);
 
-    // 5 Icons with their corresponding actions
     final List<Map<String, dynamic>> icons = [
-      {
-        'icon': Icons.chat_bubble,
-        'action': widget.onOpenApp
-      }, // Open App (Chat)
+      {'icon': Icons.chat_bubble, 'action': widget.onOpenApp},
       {'icon': Icons.call, 'action': () => debugPrint("Call Tapped")},
       {'icon': Icons.videocam, 'action': () => debugPrint("Video Tapped")},
       {'icon': Icons.settings, 'action': () => debugPrint("Settings Tapped")},
-      {
-        'icon': Icons.close,
-        'action': widget.onTapMain
-      }, // TapMain will cycle back to "icon" mode
+      {'icon': Icons.close, 'action': widget.onTapMain},
     ];
 
     double startAngle;
     double endAngle;
 
     if (isOnRightSide) {
-      // Icon is on the right -> Fan should point LEFT (180 to 90 degrees)
-      startAngle =-90.0;
+      startAngle = -90.0;
       endAngle = 90.0;
     } else {
-      // Icon is on the left -> Fan should point RIGHT (0 to 90 degrees)
       startAngle = -90.0;
       endAngle = 90.0;
     }
 
-    // Ensure we don't divide by zero if fewer than 2 icons
     final double step = icons.length > 1
         ? (endAngle - startAngle).abs() / (icons.length - 1)
         : 0;
@@ -143,7 +132,6 @@ class _DraggableChatIconState extends State<DraggableChatIcon>
                   backgroundColor: Colors.indigoAccent,
                   onPressed: () {
                     if (scale > 0.9) {
-                      // Prevent interaction until expanded
                       icons[index]['action']();
                     }
                   },
@@ -170,7 +158,7 @@ class _DraggableChatIconState extends State<DraggableChatIcon>
           clipBehavior: Clip.none,
           alignment: Alignment.center,
           children: [
-            // 1. The Radial Menu (Renders only if in radial mode)
+            // 1. The Radial Menu
             if (isRadial)
               SizedBox(
                   width: _iconSize,
@@ -180,8 +168,7 @@ class _DraggableChatIconState extends State<DraggableChatIcon>
             // 2. The Main Floating Button
             GestureDetector(
               onPanUpdate: (details) {
-                if (isRadial)
-                  widget.onTapMain(); // Collapse menu if dragging starts
+                if (isRadial) widget.onTapMain();
 
                 setState(() {
                   _currentPosition += details.delta;
@@ -190,16 +177,29 @@ class _DraggableChatIconState extends State<DraggableChatIcon>
               onPanEnd: (details) {
                 final screenWidth = MediaQuery.of(context).size.width;
                 final screenHeight = MediaQuery.of(context).size.height;
+                final topPadding = MediaQuery.of(context).padding.top;
 
-                // Clamp position within screen bounds
-                _currentPosition = Offset(
-                  _currentPosition.dx.clamp(0.0, screenWidth - _iconSize),
-                  _currentPosition.dy.clamp(0.0, screenHeight - _iconSize),
-                );
+                // 1. Find the center point of the icon
+                final centerOfIcon = _currentPosition.dx + (_iconSize / 2);
 
+                // 2. Determine which half of the screen the center is in
+                final isCloserToRight = centerOfIcon > (screenWidth / 2);
+
+                // 3. Calculate the X position, snapping it to the closest edge
+                final clampedX =
+                    isCloserToRight ? (screenWidth - _iconSize) : 0.0;
+
+                // 4. Calculate the Y position (still clamped to top/bottom)
+                final clampedY = _currentPosition.dy
+                    .clamp(topPadding, screenHeight - _iconSize);
+
+                // 5. Update the position state with the snapped values
+                _currentPosition = Offset(clampedX, clampedY);
+
+                // Notify the parent manager of the final snapped position
                 widget.onDragEnd(_currentPosition);
               },
-              onTap: widget.onTapMain, // Tap cycles mode (icon <-> radial)
+              onTap: widget.onTapMain,
               child: RotationTransition(
                 turns: isRadial
                     ? _rotateAnimation
@@ -217,12 +217,8 @@ class _DraggableChatIconState extends State<DraggableChatIcon>
                           spreadRadius: 2)
                     ],
                   ),
-                  child: Icon(
-                      isRadial
-                          ? Icons.close
-                          : Icons.add, // Shows 'X' when expanded
-                      color: Colors.white,
-                      size: 30),
+                  child: Icon(isRadial ? Icons.close : Icons.add,
+                      color: Colors.white, size: 30),
                 ),
               ),
             ),
