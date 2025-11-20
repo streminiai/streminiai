@@ -16,6 +16,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
+  bool? _connectionStatus;
+  String _connectionMessage = '';
 
   @override
   void initState() {
@@ -24,6 +26,37 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       "Hello! I'm Stremini AI. How can I help you today?",
       isUser: false,
     );
+    // Test connection on start
+    _testConnection();
+  }
+
+  Future<void> _testConnection() async {
+    setState(() {
+      _connectionStatus = null;
+      _connectionMessage = 'Testing connection...';
+    });
+
+    try {
+      final isConnected = await _apiService.testConnection();
+      setState(() {
+        _connectionStatus = isConnected;
+        _connectionMessage = isConnected 
+            ? '✅ Connected to server' 
+            : '❌ Cannot reach server';
+      });
+      
+      if (!isConnected) {
+        _addMessage(
+          "⚠️ Warning: Cannot connect to backend server. Please check your internet connection.",
+          isUser: false,
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _connectionStatus = false;
+        _connectionMessage = '❌ Connection failed: $e';
+      });
+    }
   }
 
   void _addMessage(String text, {required bool isUser}) {
@@ -65,7 +98,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     try {
       print('\n🚀 Sending: $message');
       
-      // SIMPLE: Just send the message, NO history
+      // Send the message
       final response = await _apiService.sendChatMessage(message);
       
       print('✅ Got response: $response');
@@ -74,12 +107,20 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       String botReply = 'Sorry, I couldn\'t understand that.';
       
       if (response is Map<String, dynamic>) {
+        // Try different possible response field names
         botReply = response['response'] ?? 
                    response['text'] ?? 
                    response['message'] ?? 
                    response['content'] ?? 
                    response['reply'] ?? 
-                   response.values.firstWhere((v) => v is String, orElse: () => botReply);
+                   response['answer'] ??
+                   response['data'] ??
+                   response.values.firstWhere(
+                     (v) => v is String && v.isNotEmpty, 
+                     orElse: () => 'No response from server'
+                   );
+      } else if (response is String) {
+        botReply = response;
       }
       
       print('💬 Bot says: $botReply');
@@ -90,11 +131,23 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     } catch (e) {
       print('❌ ERROR: $e');
       
+      String errorMsg = e.toString().replaceFirst("Exception: ", "");
+      
       // Show error in chat
       _addMessage(
-        '⚠️ Error: ${e.toString().replaceFirst("Exception: ", "")}',
+        '⚠️ Error: $errorMsg',
         isUser: false,
       );
+      
+      // If it's a connection error, suggest testing connection
+      if (errorMsg.contains('internet') || 
+          errorMsg.contains('connection') ||
+          errorMsg.contains('reach')) {
+        _addMessage(
+          'Tap the "Test Connection" button below to diagnose the issue.',
+          isUser: false,
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -142,16 +195,33 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               child: const Icon(Icons.bolt, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 12),
-            const Text(
-              'Stremini AI',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Stremini AI',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                  if (_connectionStatus != null)
+                    Text(
+                      _connectionMessage,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: _connectionStatus! ? Colors.green : Colors.red,
+                      ),
+                    ),
+                ],
               ),
             ),
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _testConnection,
+            tooltip: 'Test connection',
+          ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
             onPressed: _clearChat,
@@ -161,6 +231,30 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       ),
       body: Column(
         children: [
+          // Connection status banner
+          if (_connectionStatus == false)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              color: Colors.red.withOpacity(0.2),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning, color: Colors.red, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Not connected to server. Check internet connection.',
+                      style: TextStyle(color: Colors.red[300], fontSize: 13),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _testConnection,
+                    child: const Text('Test', style: TextStyle(color: Colors.red)),
+                  ),
+                ],
+              ),
+            ),
+
           // Messages list
           Expanded(
             child: ListView.builder(
