@@ -39,6 +39,8 @@ class AppDrawer extends StatelessWidget {
                 ],
               ),
             ),
+            
+            // Main Features
             _buildDrawerItem(
               context: context,
               icon: Icons.home_outlined,
@@ -74,7 +76,10 @@ class AppDrawer extends StatelessWidget {
               route: AppRouter.keyboard,
               currentRoute: currentRoute,
             ),
+            
             const Divider(),
+            
+            // Additional Features
             ListTile(
               leading: const Icon(Icons.history_outlined),
               title: const Text('History'),
@@ -85,17 +90,19 @@ class AppDrawer extends StatelessWidget {
                 );
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.settings_outlined),
-              title: const Text('Settings'),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Settings feature coming soon!')),
-                );
-              },
+            
+            // Settings - NOW FUNCTIONAL
+            _buildDrawerItem(
+              context: context,
+              icon: Icons.settings_outlined,
+              title: 'Settings',
+              route: AppRouter.settings,
+              currentRoute: currentRoute,
             ),
+            
             const Divider(),
+            
+            // About
             ListTile(
               leading: const Icon(Icons.info_outline),
               title: const Text('About'),
@@ -105,8 +112,17 @@ class AppDrawer extends StatelessWidget {
                   context: context,
                   applicationName: 'Stremini AI',
                   applicationVersion: '1.0.0',
-                  applicationIcon: const Icon(Icons.security, size: 48),
+                  applicationIcon: Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.security, color: Colors.white, size: 32),
+                  ),
                   children: [
+                    const SizedBox(height: 16),
                     const Text('Your intelligent digital bodyguard powered by AI.'),
                     const SizedBox(height: 8),
                     const Text('Developed by Stremini AI Developers'),
