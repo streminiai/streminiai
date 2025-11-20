@@ -1,29 +1,130 @@
 <?xml version="1.0" encoding="utf-8"?>
-<network-security-config>
-    <!-- Base configuration for all connections -->
-    <base-config cleartextTrafficPermitted="true">
-        <trust-anchors>
-            <!-- Trust system certificates -->
-            <certificates src="system" />
-            <!-- Trust user-added certificates (for debugging) -->
-            <certificates src="user" />
-        </trust-anchors>
-    </base-config>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     
-    <!-- Specific configuration for your backend domain -->
-    <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">vishwajeetadkine705.workers.dev</domain>
-        <domain includeSubdomains="true">workers.dev</domain>
-        <trust-anchors>
-            <certificates src="system" />
-        </trust-anchors>
-    </domain-config>
+    <!-- ========================================== -->
+    <!-- INTERNET & NETWORK PERMISSIONS (CRITICAL) -->
+    <!-- ========================================== -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
     
-    <!-- Debug configuration (remove in production) -->
-    <debug-overrides>
-        <trust-anchors>
-            <certificates src="system" />
-            <certificates src="user" />
-        </trust-anchors>
-    </debug-overrides>
-</network-security-config>
+    <!-- ========================================== -->
+    <!-- OVERLAY & FLOATING BUTTON PERMISSIONS -->
+    <!-- ========================================== -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    
+    <!-- ========================================== -->
+    <!-- CAMERA & STORAGE PERMISSIONS -->
+    <!-- For image picker and screen analysis -->
+    <!-- ========================================== -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
+        android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
+        android:maxSdkVersion="28"
+        tools:ignore="ScopedStorage"/>
+    
+    <!-- Android 13+ media permissions -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+    
+    <!-- ========================================== -->
+    <!-- SCREENSHOT PERMISSIONS -->
+    <!-- ========================================== -->
+    <uses-permission android:name="android.permission.READ_FRAME_BUFFER"
+        tools:ignore="ProtectedPermissions"/>
+    
+    <!-- ========================================== -->
+    <!-- OPTIONAL: For better app experience -->
+    <!-- ========================================== -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    
+    <!-- Camera features (optional) -->
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
+    
+    <application
+        android:name="${applicationName}"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:usesCleartextTraffic="true"
+        android:requestLegacyExternalStorage="true"
+        android:theme="@style/Theme.Stremniapp"
+        tools:targetApi="31">
+        
+        <!-- ========================================== -->
+        <!-- MAIN ACTIVITY -->
+        <!-- ========================================== -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/LaunchTheme"
+            android:screenOrientation="unspecified">
+            
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme"/>
+            
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        
+        <!-- ========================================== -->
+        <!-- OVERLAY SERVICE (Floating Button) -->
+        <!-- ========================================== -->
+        <service
+            android:name="flutter.overlay.window.flutter_overlay_window.OverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Screen security analysis and scam detection" />
+        </service>
+        
+        <!-- ========================================== -->
+        <!-- Flutter Embedding Metadata -->
+        <!-- ========================================== -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+            
+    </application>
+    
+    <!-- ========================================== -->
+    <!-- QUERIES (Android 11+) -->
+    <!-- Allows app to detect other apps -->
+    <!-- ========================================== -->
+    <queries>
+        <!-- Camera apps -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE"/>
+        </intent>
+        <!-- Gallery apps -->
+        <intent>
+            <action android:name="android.intent.action.GET_CONTENT"/>
+        </intent>
+        <!-- File picker -->
+        <intent>
+            <action android:name="android.intent.action.PICK"/>
+            <data android:mimeType="*/*"/>
+        </intent>
+    </queries>
+    
+</manifest>
