@@ -2,6 +2,7 @@ package com.example.stremniapp
 
 import android.os.Bundle
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.ActivityCompat
@@ -9,10 +10,14 @@ import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import com.example.stremniapp.channels.ScreenCaptureChannel
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.example.stremniapp/permissions"
+    private val SCREEN_CAPTURE_CHANNEL = "com.example.stremniapp/screen_capture"
     private val PERMISSION_REQUEST_CODE = 1001
+    
+    private var screenCaptureChannel: ScreenCaptureChannel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,29 +29,41 @@ class MainActivity: FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         
-        // Setup method channel for Flutter to request permissions
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "requestPermissions" -> {
-                    requestRuntimePermissions()
-                    result.success(true)
-                }
-                "checkPermissions" -> {
-                    val hasPermissions = checkAllPermissions()
-                    result.success(hasPermissions)
-                }
-                else -> {
-                    result.notImplemented()
+        // Setup permissions method channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "requestPermissions" -> {
+                        requestRuntimePermissions()
+                        result.success(true)
+                    }
+                    "checkPermissions" -> {
+                        val hasPermissions = checkAllPermissions()
+                        result.success(hasPermissions)
+                    }
+                    else -> {
+                        result.notImplemented()
+                    }
                 }
             }
-        }
+        
+        // Setup screen capture channel
+        val screenCaptureMethodChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            SCREEN_CAPTURE_CHANNEL
+        )
+        screenCaptureChannel = ScreenCaptureChannel(this, screenCaptureMethodChannel)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        
+        // Handle screen capture permission result
+        screenCaptureChannel?.handleActivityResult(requestCode, resultCode, data)
     }
 
     private fun requestRuntimePermissions() {
         val permissionsToRequest = mutableListOf<String>()
-
-        // Internet - always granted (manifest permission)
-        // No need to request at runtime
 
         // Camera permission
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) 
@@ -115,7 +132,6 @@ class MainActivity: FlutterActivity() {
             val allGranted = grantResults.all { it == PackageManager.PERMISSION_GRANTED }
             
             if (!allGranted) {
-                // Show a message if permissions are denied
                 println("⚠️ Some permissions were denied")
             } else {
                 println("✅ All permissions granted")
