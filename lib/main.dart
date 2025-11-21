@@ -37,7 +37,7 @@ class StreminiChatbot extends StatelessWidget {
   }
 }
 
-// Enhanced Overlay Widget with Chat Interface
+// Enhanced Overlay Widget with Floating Half-Screen Chat
 class OverlayWidget extends StatefulWidget {
   const OverlayWidget({Key? key}) : super(key: key);
 
@@ -52,6 +52,7 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
   String _currentStatus = 'idle';
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
+  late Animation<double> _chatSlideAnimation;
   
   // Chat variables
   final TextEditingController _messageController = TextEditingController();
@@ -64,12 +65,16 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
     super.initState();
     
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 300),
       vsync: this,
     );
     
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _chatSlideAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
 
     // Listen for messages from main app
@@ -118,15 +123,11 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
   }
 
   void _handleMainButtonTap() {
-    _animationController.forward().then((_) {
-      _animationController.reverse();
-    });
-    
-    // Open chat interface
     setState(() {
       _isChatOpen = true;
       _isExpanded = false;
     });
+    _animationController.forward();
   }
 
   void _toggleExpansion() {
@@ -134,9 +135,10 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
   }
 
   void _closeChat() {
-    setState(() {
-      _isChatOpen = false;
-      _messages.clear();
+    _animationController.reverse().then((_) {
+      setState(() {
+        _isChatOpen = false;
+      });
     });
   }
 
@@ -211,8 +213,24 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
       color: Colors.transparent,
       child: Stack(
         children: [
-          // Chat Interface (Full Screen)
-          if (_isChatOpen) _buildChatInterface(screenSize),
+          // Floating Chat Window (Half Screen from Bottom)
+          if (_isChatOpen)
+            AnimatedBuilder(
+              animation: _chatSlideAnimation,
+              builder: (context, child) {
+                return Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: screenSize.height * 0.45, // 45% of screen height (matches image)
+                  child: Transform.translate(
+                    offset: Offset(0, screenSize.height * 0.65 * _chatSlideAnimation.value),
+                    child: child,
+                  ),
+                );
+              },
+              child: _buildFloatingChatWindow(screenSize),
+            ),
           
           // Floating Button Interface
           if (!_isChatOpen) ...[
@@ -232,7 +250,7 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
               // Info button
               Positioned(
                 right: 16,
-                top: screenSize.height / 2 - 110,
+                bottom: 200,
                 child: TweenAnimationBuilder<double>(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOutBack,
@@ -256,7 +274,7 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
               // Settings button
               Positioned(
                 right: 16,
-                top: screenSize.height / 2 + 50,
+                bottom: 140,
                 child: TweenAnimationBuilder<double>(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOutBack,
@@ -280,7 +298,7 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
               // Close overlay button
               Positioned(
                 right: 16,
-                top: screenSize.height / 2 + 130,
+                bottom: 80,
                 child: TweenAnimationBuilder<double>(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOutBack,
@@ -305,7 +323,7 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
             // Main floating button
             Positioned(
               right: 16,
-              top: screenSize.height / 2 - 30,
+              bottom: 20,
               child: GestureDetector(
                 onTap: _handleMainButtonTap,
                 onLongPress: _toggleExpansion,
@@ -355,7 +373,7 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
             if (_currentStatus != 'idle')
               Positioned(
                 right: 20,
-                top: screenSize.height / 2 - 26,
+                bottom: 64,
                 child: Container(
                   width: 12,
                   height: 12,
@@ -383,215 +401,236 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
     );
   }
 
-  Widget _buildChatInterface(Size screenSize) {
-    return Positioned.fill(
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              const Color(0xFF1a1a1a),
-              const Color(0xFF0a0a0a),
-            ],
-          ),
-        ),
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
-                border: Border(
-                  bottom: BorderSide(
-                    color: Colors.white.withOpacity(0.1),
-                    width: 1,
-                  ),
-                ),
-              ),
-              child: SafeArea(
-                bottom: false,
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.auto_awesome, color: Colors.white, size: 22),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Stremini AI',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            'Always here to help',
-                            style: TextStyle(
-                              color: Colors.white60,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: _closeChat,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Messages
-            Expanded(
-              child: _messages.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 40),
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Start a conversation',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Ask me anything!',
-                            style: TextStyle(
-                              color: Colors.white60,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        return _buildMessageBubble(_messages[index]);
-                      },
-                    ),
-            ),
-
-            // Loading indicator
-            if (_isSending)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                alignment: Alignment.centerLeft,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.blue[300],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Thinking...',
-                      style: TextStyle(
-                        fontStyle: FontStyle.italic,
-                        color: Colors.white.withOpacity(0.5),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            // Input field
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
-                border: Border(
-                  top: BorderSide(
-                    color: Colors.white.withOpacity(0.1),
-                    width: 1,
-                  ),
-                ),
-              ),
-              child: SafeArea(
-                top: false,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: TextField(
-                          controller: _messageController,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            hintText: 'Message...',
-                            hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-                            border: InputBorder.none,
-                          ),
-                          maxLines: null,
-                          onSubmitted: (_) => _sendMessage(),
-                          enabled: !_isSending,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
-                        ),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                        onPressed: _isSending ? null : _sendMessage,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+  Widget _buildFloatingChatWindow(Size screenSize) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF1a1a1a),
+            Color(0xFF0a0a0a),
           ],
         ),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.5),
+            blurRadius: 20,
+            spreadRadius: 5,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Drag Handle
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ),
+
+          // Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: Colors.white.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.auto_awesome, color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Stremini AI',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Always here to help',
+                        style: TextStyle(
+                          color: Colors.white60,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: _closeChat,
+                ),
+              ],
+            ),
+          ),
+
+          // Messages
+          Expanded(
+            child: _messages.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 70,
+                          height: 70,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+                            ),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 35),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Start a conversation',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Ask me anything!',
+                          style: TextStyle(
+                            color: Colors.white60,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      return _buildMessageBubble(_messages[index]);
+                    },
+                  ),
+          ),
+
+          // Loading indicator
+          if (_isSending)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.blue[300],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Thinking...',
+                    style: TextStyle(
+                      fontStyle: FontStyle.italic,
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // Input field
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.3),
+              border: Border(
+                top: BorderSide(
+                  color: Colors.white.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: TextField(
+                        controller: _messageController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Message...',
+                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                          border: InputBorder.none,
+                        ),
+                        maxLines: null,
+                        onSubmitted: (_) => _sendMessage(),
+                        enabled: !_isSending,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                      onPressed: _isSending ? null : _sendMessage,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
