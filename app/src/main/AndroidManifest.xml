@@ -2,51 +2,31 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     
-    <!-- ========================================== -->
-    <!-- INTERNET & NETWORK PERMISSIONS (CRITICAL) -->
-    <!-- ========================================== -->
+    <!-- EXISTING PERMISSIONS... -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
-    
-    <!-- ========================================== -->
-    <!-- OVERLAY & FLOATING BUTTON PERMISSIONS -->
-    <!-- ========================================== -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
-    
-    <!-- ========================================== -->
-    <!-- CAMERA & STORAGE PERMISSIONS -->
-    <!-- For image picker and screen analysis -->
-    <!-- ========================================== -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
         android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
         android:maxSdkVersion="28"
         tools:ignore="ScopedStorage"/>
-    
-    <!-- Android 13+ media permissions -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
-    
-    <!-- ========================================== -->
-    <!-- SCREENSHOT PERMISSIONS -->
-    <!-- ========================================== -->
     <uses-permission android:name="android.permission.READ_FRAME_BUFFER"
         tools:ignore="ProtectedPermissions"/>
-    
-    <!-- ========================================== -->
-    <!-- OPTIONAL: For better app experience -->
-    <!-- ========================================== -->
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     
-    <!-- Camera features (optional) -->
-    <uses-feature android:name="android.hardware.camera" android:required="false"/>
-    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
+    <!-- NEW PERMISSIONS FOR SCREEN CAPTURE -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
+    <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE"
+        tools:ignore="ProtectedPermissions"/>
     
     <application
         android:name="${applicationName}"
@@ -63,9 +43,7 @@
         android:theme="@style/Theme.Stremniapp"
         tools:targetApi="31">
         
-        <!-- ========================================== -->
-        <!-- MAIN ACTIVITY -->
-        <!-- ========================================== -->
+        <!-- EXISTING MAIN ACTIVITY -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -86,9 +64,7 @@
             </intent-filter>
         </activity>
         
-        <!-- ========================================== -->
-        <!-- OVERLAY SERVICE (Floating Button) -->
-        <!-- ========================================== -->
+        <!-- EXISTING OVERLAY SERVICE -->
         <service
             android:name="flutter.overlay.window.flutter_overlay_window.OverlayService"
             android:exported="false"
@@ -98,29 +74,40 @@
                 android:value="Screen security analysis and scam detection" />
         </service>
         
-        <!-- ========================================== -->
+        <!-- NEW: SCREEN CAPTURE SERVICE -->
+        <service
+            android:name=".services.ScreenCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection"
+            android:enabled="true" />
+        
+        <!-- NEW: ACCESSIBILITY SERVICE -->
+        <service
+            android:name=".services.StreminiAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+        
         <!-- Flutter Embedding Metadata -->
-        <!-- ========================================== -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
             
     </application>
     
-    <!-- ========================================== -->
-    <!-- QUERIES (Android 11+) -->
-    <!-- Allows app to detect other apps -->
-    <!-- ========================================== -->
     <queries>
-        <!-- Camera apps -->
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE"/>
         </intent>
-        <!-- Gallery apps -->
         <intent>
             <action android:name="android.intent.action.GET_CONTENT"/>
         </intent>
-        <!-- File picker -->
         <intent>
             <action android:name="android.intent.action.PICK"/>
             <data android:mimeType="*/*"/>
