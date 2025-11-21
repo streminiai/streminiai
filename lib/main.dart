@@ -49,6 +49,9 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
   bool _isMenuOpen = false;
   bool _isChatOpen = false;
   bool _isAnalyzing = false;
+  bool _analysisResultVisible = false;
+  String _analysisResultSafety = '';
+  String _analysisResultReason = '';
   String _currentStatus = 'idle';
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -136,10 +139,67 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
     _animationController.forward();
   }
 
-  void _openAnalyzeScreen() {
-    setState(() => _isMenuOpen = false);
-    // Send message to main app to trigger screen analysis
-    FlutterOverlayWindow.shareData('analyze_screen');
+  void _openAnalyzeScreen() async {
+    setState(() {
+      _isMenuOpen = false;
+      _isAnalyzing = true;
+      _currentStatus = 'analyzing';
+    });
+
+    try {
+      // In a real implementation, you would capture the screen here
+      // For now, we'll send a dummy text for analysis
+      final response = await http.post(
+        Uri.parse('https://ai-keyboard-backend.vishwajeetadkine705.workers.dev/security/scan-content'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'content': 'Sample screen content for analysis. This could be OCR text from screen capture.'
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final safety = data['safety'] ?? 'Unknown';
+        final reason = data['reason'] ?? 'Analysis complete';
+        
+        setState(() {
+          _isAnalyzing = false;
+          _currentStatus = safety.toLowerCase().contains('safe') ? 'safe' : 'danger';
+        });
+
+        // Show result notification
+        _showAnalysisResult(safety, reason);
+        
+        // Reset status after 3 seconds
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) setState(() => _currentStatus = 'idle');
+        });
+      } else {
+        throw Exception('Analysis failed');
+      }
+    } catch (e) {
+      setState(() {
+        _isAnalyzing = false;
+        _currentStatus = 'idle';
+      });
+      _showAnalysisResult('Error', 'Could not analyze screen. Please try again.');
+    }
+  }
+
+  void _showAnalysisResult(String safety, String reason) {
+    // This will be shown as a floating notification
+    setState(() {
+      _analysisResultVisible = true;
+      _analysisResultSafety = safety;
+      _analysisResultReason = reason;
+    });
+
+    // Auto-hide after 5 seconds
+    Future.delayed(const Duration(seconds: 5), () {
+      if (mounted) {
+        setState(() => _analysisResultVisible = false);
+      }
+    });
   }
 
   void _openAIKeyboard() {
