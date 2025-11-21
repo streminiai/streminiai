@@ -1,3 +1,11 @@
 <resources>
     <string name="app_name">stremniapp</string>
+    
+    <!-- ADD THESE NEW STRINGS -->
+    <string name="accessibility_service_description">
+        Stremini AI Accessibility Service reads screen content to detect scams and phishing attempts. 
+        This helps protect you while using other apps.
+    </string>
+    <string name="screen_capture_notification_title">Screen Analysis Active</string>
+    <string name="screen_capture_notification_text">Stremini AI is monitoring for threats</string>
 </resources>
