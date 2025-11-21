@@ -37,7 +37,7 @@ class StreminiChatbot extends StatelessWidget {
   }
 }
 
-// Enhanced Overlay Widget with Floating Half-Screen Chat
+// Enhanced Overlay Widget with 4-Button Menu
 class OverlayWidget extends StatefulWidget {
   const OverlayWidget({Key? key}) : super(key: key);
 
@@ -46,9 +46,9 @@ class OverlayWidget extends StatefulWidget {
 }
 
 class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProviderStateMixin {
-  bool _isAnalyzing = false;
-  bool _isExpanded = false;
+  bool _isMenuOpen = false;
   bool _isChatOpen = false;
+  bool _isAnalyzing = false;
   String _currentStatus = 'idle';
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -124,14 +124,32 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
 
   void _handleMainButtonTap() {
     setState(() {
+      _isMenuOpen = !_isMenuOpen;
+    });
+  }
+
+  void _openChatbot() {
+    setState(() {
       _isChatOpen = true;
-      _isExpanded = false;
+      _isMenuOpen = false;
     });
     _animationController.forward();
   }
 
-  void _toggleExpansion() {
-    setState(() => _isExpanded = !_isExpanded);
+  void _openAnalyzeScreen() {
+    setState(() => _isMenuOpen = false);
+    // Send message to main app to trigger screen analysis
+    FlutterOverlayWindow.shareData('analyze_screen');
+  }
+
+  void _openAIKeyboard() {
+    setState(() => _isMenuOpen = false);
+    // Send message to main app to open AI Keyboard
+    FlutterOverlayWindow.shareData('open_ai_keyboard');
+  }
+
+  void _closeOverlay() {
+    FlutterOverlayWindow.closeOverlay();
   }
 
   void _closeChat() {
@@ -222,9 +240,9 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  height: screenSize.height * 0.45, // 45% of screen height (matches image)
+                  height: screenSize.height * 0.45,
                   child: Transform.translate(
-                    offset: Offset(0, screenSize.height * 0.65 * _chatSlideAnimation.value),
+                    offset: Offset(0, screenSize.height * 0.45 * _chatSlideAnimation.value),
                     child: child,
                   ),
                 );
@@ -232,25 +250,25 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
               child: _buildFloatingChatWindow(screenSize),
             ),
           
-          // Floating Button Interface
+          // Main Floating Button and Menu
           if (!_isChatOpen) ...[
-            // Background overlay (when expanded)
-            if (_isExpanded)
+            // Background overlay (when menu is open)
+            if (_isMenuOpen)
               Positioned.fill(
                 child: GestureDetector(
-                  onTap: () => setState(() => _isExpanded = false),
+                  onTap: () => setState(() => _isMenuOpen = false),
                   child: Container(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withOpacity(0.3),
                   ),
                 ),
               ),
 
-            // Expanded menu buttons
-            if (_isExpanded) ...[
-              // Info button
+            // 4-Button Menu (appears above main button)
+            if (_isMenuOpen) ...[
+              // Button 1: Chatbot
               Positioned(
                 right: 16,
-                bottom: 200,
+                bottom: 260,
                 child: TweenAnimationBuilder<double>(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOutBack,
@@ -261,22 +279,67 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
                       child: Opacity(opacity: value, child: child),
                     );
                   },
-                  child: _buildSecondaryButton(
-                    icon: Icons.info_outline,
+                  child: _buildMenuButton(
+                    icon: Icons.chat_bubble,
+                    label: 'Chatbot',
+                    color: const Color(0xFF3B82F6),
+                    onTap: _openChatbot,
+                  ),
+                ),
+              ),
+
+              // Button 2: Analyze Screen
+              Positioned(
+                right: 16,
+                bottom: 190,
+                child: TweenAnimationBuilder<double>(
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.easeOutBack,
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  builder: (context, value, child) {
+                    return Transform.scale(
+                      scale: value,
+                      child: Opacity(opacity: value, child: child),
+                    );
+                  },
+                  child: _buildMenuButton(
+                    icon: Icons.screen_search_desktop,
+                    label: 'Analyze Screen',
+                    color: const Color(0xFF10B981),
+                    onTap: _openAnalyzeScreen,
+                  ),
+                ),
+              ),
+
+              // Button 3: AI Keyboard
+              Positioned(
+                right: 16,
+                bottom: 120,
+                child: TweenAnimationBuilder<double>(
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeOutBack,
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  builder: (context, value, child) {
+                    return Transform.scale(
+                      scale: value,
+                      child: Opacity(opacity: value, child: child),
+                    );
+                  },
+                  child: _buildMenuButton(
+                    icon: Icons.keyboard,
+                    label: 'AI Keyboard',
                     color: const Color(0xFF8B5CF6),
-                    onTap: () {
-                      FlutterOverlayWindow.shareData('show_info');
-                    },
+                    onTap: _openAIKeyboard,
                   ),
                 ),
               ),
 
-              // Settings button
+              // Button 4: Close
               Positioned(
                 right: 16,
-                bottom: 140,
+                bottom: 90,
                 child: TweenAnimationBuilder<double>(
-                  duration: const Duration(milliseconds: 300),
+                  duration: const Duration(milliseconds: 450),
                   curve: Curves.easeOutBack,
                   tween: Tween(begin: 0.0, end: 1.0),
                   builder: (context, value, child) {
@@ -285,36 +348,11 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
                       child: Opacity(opacity: value, child: child),
                     );
                   },
-                  child: _buildSecondaryButton(
-                    icon: Icons.settings,
-                    color: const Color(0xFF6B7280),
-                    onTap: () {
-                      FlutterOverlayWindow.shareData('open_settings');
-                    },
-                  ),
-                ),
-              ),
-
-              // Close overlay button
-              Positioned(
-                right: 16,
-                bottom: 80,
-                child: TweenAnimationBuilder<double>(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutBack,
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  builder: (context, value, child) {
-                    return Transform.scale(
-                      scale: value,
-                      child: Opacity(opacity: value, child: child),
-                    );
-                  },
-                  child: _buildSecondaryButton(
+                  child: _buildMenuButton(
                     icon: Icons.close,
+                    label: 'Close',
                     color: const Color(0xFFEF4444),
-                    onTap: () {
-                      FlutterOverlayWindow.closeOverlay();
-                    },
+                    onTap: _closeOverlay,
                   ),
                 ),
               ),
@@ -326,31 +364,32 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
               bottom: 20,
               child: GestureDetector(
                 onTap: _handleMainButtonTap,
-                onLongPress: _toggleExpansion,
-                child: ScaleTransition(
-                  scale: _scaleAnimation,
-                  child: Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          _getMainButtonColor(),
-                          _getMainButtonColor().withOpacity(0.7),
-                        ],
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: _getMainButtonColor().withOpacity(0.4),
-                          blurRadius: 20,
-                          spreadRadius: 2,
-                          offset: const Offset(0, 4),
-                        ),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        _getMainButtonColor(),
+                        _getMainButtonColor().withOpacity(0.7),
                       ],
                     ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: _getMainButtonColor().withOpacity(0.4),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: AnimatedRotation(
+                    duration: const Duration(milliseconds: 300),
+                    turns: _isMenuOpen ? 0.125 : 0, // 45 degree rotation
                     child: _isAnalyzing
                         ? const Padding(
                             padding: EdgeInsets.all(15),
@@ -360,7 +399,7 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
                             ),
                           )
                         : Icon(
-                            _getIconForStatus(),
+                            _isMenuOpen ? Icons.close : _getIconForStatus(),
                             color: Colors.white,
                             size: 28,
                           ),
@@ -370,7 +409,7 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
             ),
 
             // Status indicator
-            if (_currentStatus != 'idle')
+            if (_currentStatus != 'idle' && !_isMenuOpen)
               Positioned(
                 right: 20,
                 bottom: 64,
@@ -396,6 +435,66 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
                 ),
               ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Label
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: color.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          
+          // Icon Button
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [color, color.withOpacity(0.7)],
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.4),
+                  blurRadius: 15,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 24),
+          ),
         ],
       ),
     );
@@ -692,40 +791,6 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
     );
   }
 
-  Widget _buildSecondaryButton({
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: () {
-        onTap();
-        setState(() => _isExpanded = false);
-      },
-      child: Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [color, color.withOpacity(0.7)],
-          ),
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.3),
-              blurRadius: 15,
-              spreadRadius: 1,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Icon(icon, color: Colors.white, size: 24),
-      ),
-    );
-  }
-
   IconData _getIconForStatus() {
     switch (_currentStatus) {
       case 'safe':
@@ -735,7 +800,7 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
       case 'analyzing':
         return Icons.security;
       default:
-        return Icons.chat_bubble;
+        return Icons.auto_awesome;
     }
   }
 }
