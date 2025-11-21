@@ -291,6 +291,15 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
       color: Colors.transparent,
       child: Stack(
         children: [
+          // Analysis Result Notification (Floating)
+          if (_analysisResultVisible && !_isChatOpen)
+            Positioned(
+              left: 16,
+              right: 16,
+              top: 100,
+              child: _buildAnalysisResultCard(),
+            ),
+
           // Floating Chat Window (Half Screen from Bottom)
           if (_isChatOpen)
             AnimatedBuilder(
@@ -862,6 +871,122 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
       default:
         return Icons.auto_awesome;
     }
+  }
+
+  Widget _buildAnalysisResultCard() {
+    final isSafe = _analysisResultSafety.toLowerCase().contains('safe') && 
+                   !_analysisResultSafety.toLowerCase().contains('unsafe');
+    final isDangerous = _analysisResultSafety.toLowerCase().contains('scam') || 
+                       _analysisResultSafety.toLowerCase().contains('phishing') ||
+                       _analysisResultSafety.toLowerCase().contains('unsafe');
+
+    Color cardColor = isSafe ? const Color(0xFF10B981) : 
+                     isDangerous ? const Color(0xFFEF4444) : 
+                     const Color(0xFFF59E0B);
+    
+    IconData cardIcon = isSafe ? Icons.check_circle : 
+                       isDangerous ? Icons.dangerous : 
+                       Icons.warning;
+
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutBack,
+      tween: Tween(begin: 0.0, end: 1.0),
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: value,
+          child: Opacity(
+            opacity: value,
+            child: child,
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              cardColor,
+              cardColor.withOpacity(0.8),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: cardColor.withOpacity(0.4),
+              blurRadius: 20,
+              spreadRadius: 2,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(cardIcon, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _analysisResultSafety,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Screen Analysis Complete',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                  onPressed: () {
+                    setState(() => _analysisResultVisible = false);
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                _analysisResultReason,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
