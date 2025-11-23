@@ -7,24 +7,45 @@ class AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentRoute = ModalRoute.of(context)?.settings.name;
+    final theme = Theme.of(context);
 
     return Drawer(
       child: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        color: theme.scaffoldBackgroundColor,
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
+            // Header
             DrawerHeader(
               decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    theme.primaryColor,
+                    theme.primaryColor.withOpacity(0.7),
+                  ],
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
-                children: const [
-                  Icon(Icons.security, size: 48, color: Colors.white),
-                  SizedBox(height: 12),
-                  Text(
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.security,
+                      size: 28,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
                     'Stremini AI',
                     style: TextStyle(
                       color: Colors.white,
@@ -32,102 +53,66 @@ class AppDrawer extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Text(
+                  const Text(
                     'Your Digital Bodyguard',
                     style: TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                 ],
               ),
             ),
-            
-            // Main Features
-            _buildDrawerItem(
+
+            // Navigation items
+            _buildItem(
               context: context,
               icon: Icons.home_outlined,
+              selectedIcon: Icons.home,
               title: 'Home',
               route: AppRouter.home,
               currentRoute: currentRoute,
             ),
-            _buildDrawerItem(
+            _buildItem(
               context: context,
               icon: Icons.chat_bubble_outline,
+              selectedIcon: Icons.chat_bubble,
               title: 'AI Chat',
               route: AppRouter.chat,
               currentRoute: currentRoute,
             ),
-            _buildDrawerItem(
+            _buildItem(
               context: context,
               icon: Icons.document_scanner_outlined,
+              selectedIcon: Icons.document_scanner,
               title: 'Content Analyzer',
               route: AppRouter.analyzer,
               currentRoute: currentRoute,
             ),
-            _buildDrawerItem(
+            _buildItem(
               context: context,
               icon: Icons.shield_outlined,
-              title: 'Screen Analyzer',
+              selectedIcon: Icons.shield,
+              title: 'Floating Bubble',
               route: AppRouter.systemOverlay,
               currentRoute: currentRoute,
             ),
-            _buildDrawerItem(
-              context: context,
-              icon: Icons.keyboard_alt_outlined,
-              title: 'Custom Keyboard',
-              route: AppRouter.keyboard,
-              currentRoute: currentRoute,
-            ),
-            
-            const Divider(),
-            
-            // Additional Features
-            ListTile(
-              leading: const Icon(Icons.history_outlined),
-              title: const Text('History'),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('History feature coming soon!')),
-                );
-              },
-            ),
-            
-            // Settings - NOW FUNCTIONAL
-            _buildDrawerItem(
+
+            const Divider(height: 32),
+
+            _buildItem(
               context: context,
               icon: Icons.settings_outlined,
+              selectedIcon: Icons.settings,
               title: 'Settings',
               route: AppRouter.settings,
               currentRoute: currentRoute,
             ),
-            
-            const Divider(),
-            
+
             // About
             ListTile(
               leading: const Icon(Icons.info_outline),
               title: const Text('About'),
               onTap: () {
                 Navigator.pop(context);
-                showAboutDialog(
-                  context: context,
-                  applicationName: 'Stremini AI',
-                  applicationVersion: '1.0.0',
-                  applicationIcon: Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.security, color: Colors.white, size: 32),
-                  ),
-                  children: [
-                    const SizedBox(height: 16),
-                    const Text('Your intelligent digital bodyguard powered by AI.'),
-                    const SizedBox(height: 8),
-                    const Text('Developed by Stremini AI Developers'),
-                  ],
-                );
+                _showAbout(context);
               },
             ),
           ],
@@ -136,25 +121,63 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildDrawerItem({
+  Widget _buildItem({
     required BuildContext context,
     required IconData icon,
+    required IconData selectedIcon,
     required String title,
     required String route,
     required String? currentRoute,
   }) {
     final isSelected = currentRoute == route;
+    final theme = Theme.of(context);
+
     return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
+      leading: Icon(
+        isSelected ? selectedIcon : icon,
+        color: isSelected ? theme.primaryColor : null,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: isSelected ? theme.primaryColor : null,
+          fontWeight: isSelected ? FontWeight.w600 : null,
+        ),
+      ),
       selected: isSelected,
-      selectedTileColor: Theme.of(context).primaryColor.withOpacity(0.1),
+      selectedTileColor: theme.primaryColor.withOpacity(0.1),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       onTap: () {
         Navigator.pop(context);
         if (!isSelected) {
           Navigator.pushReplacementNamed(context, route);
         }
       },
+    );
+  }
+
+  void _showAbout(BuildContext context) {
+    showAboutDialog(
+      context: context,
+      applicationName: 'Stremini AI',
+      applicationVersion: '1.0.0',
+      applicationIcon: Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          color: Theme.of(context).primaryColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(Icons.security, color: Colors.white, size: 32),
+      ),
+      children: const [
+        SizedBox(height: 16),
+        Text('Your intelligent digital bodyguard powered by AI.'),
+        SizedBox(height: 8),
+        Text('Protect yourself from scams, phishing, and online threats.'),
+      ],
     );
   }
 }
