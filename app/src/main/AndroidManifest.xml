@@ -97,7 +97,7 @@
                 android:value="Screen capture for security analysis" />
         </service>
         
-        <!-- Flutter Embedding V2 -->
+        <!-- Flutter Embedding V2 - REQUIRED -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
