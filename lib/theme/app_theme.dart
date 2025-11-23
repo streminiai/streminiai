@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 class AppTheme {
   AppTheme._();
 
+  // Colors
+  static const Color electricNeonBlue = Color(0xFF00F0FF);
   static const Color backgroundColor = Color(0xFF1C1C1E);
   static const Color scaffoldBackgroundColor = Color(0xFF1C1C1E);
   static const Color primaryColor = Color(0xFF0A84FF);
@@ -17,27 +19,53 @@ class AppTheme {
 
     colorScheme: const ColorScheme.dark(
       primary: primaryColor,
+      secondary: electricNeonBlue,
       surface: cardColor,
     ),
 
     textTheme: GoogleFonts.interTextTheme(
       const TextTheme(
-        displayLarge: TextStyle(fontSize: 34, fontWeight: FontWeight.bold, color: Colors.white),
-        titleLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
-        bodyLarge: TextStyle(fontSize: 17, fontWeight: FontWeight.normal, color: Colors.white),
-        bodyMedium: TextStyle(fontSize: 15, fontWeight: FontWeight.normal, color: Colors.white70),
-        labelLarge: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+        displayLarge: TextStyle(
+          fontSize: 34,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+        titleLarge: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+        bodyLarge: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.normal,
+          color: Colors.white,
+        ),
+        bodyMedium: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.normal,
+          color: Colors.white70,
+        ),
+        labelLarge: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
       ),
     ),
 
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white),
+      centerTitle: false,
+      titleTextStyle: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+      ),
       iconTheme: IconThemeData(color: primaryColor),
     ),
 
-    cardTheme: CardThemeData(  // Changed from CardTheme to CardThemeData
+    cardTheme: CardThemeData(
       elevation: 0,
       color: cardColor,
       shape: RoundedRectangleBorder(
@@ -53,21 +81,54 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
         ),
         padding: const EdgeInsets.symmetric(vertical: 16),
-        textStyle: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w600),
+        textStyle: GoogleFonts.inter(
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     ),
 
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: primaryColor,
+        side: const BorderSide(color: primaryColor),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+      ),
+    ),
+
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: cardColor,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    ),
+
     switchTheme: SwitchThemeData(
-      thumbColor: MaterialStateProperty.resolveWith((states) {
-        if (states.contains(MaterialState.selected)) return primaryColor;
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return primaryColor;
         return Colors.white;
       }),
-      trackColor: MaterialStateProperty.resolveWith((states) {
-        if (states.contains(MaterialState.selected)) {
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
           return primaryColor.withOpacity(0.5);
         }
         return Colors.grey;
       }),
+    ),
+
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: cardColor,
+      contentTextStyle: const TextStyle(color: Colors.white),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      behavior: SnackBarBehavior.floating,
     ),
   );
 }
