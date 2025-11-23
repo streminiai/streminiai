@@ -10,64 +10,56 @@ class ChatbotScreen extends StatefulWidget {
 }
 
 class _ChatbotScreenState extends State<ChatbotScreen> {
-  final TextEditingController _messageController = TextEditingController();
+  final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final ApiService _apiService = ApiService();
-  
-  final List<ChatMessage> _messages = [];
+  final ApiService _api = ApiService();
+
+  final List<_Message> _messages = [];
   bool _isLoading = false;
-  bool? _connectionStatus;
-  String _connectionMessage = '';
+  bool? _isConnected;
 
   @override
   void initState() {
     super.initState();
-    _addMessage(
-      "Hello! I'm Stremini AI. How can I help you today?",
+    _messages.add(_Message(
+      text: "Hello! I'm Stremini AI. How can I help you today?",
       isUser: false,
-    );
-    // Test connection on start
+    ));
     _testConnection();
   }
 
   Future<void> _testConnection() async {
-    setState(() {
-      _connectionStatus = null;
-      _connectionMessage = 'Testing connection...';
-    });
-
-    try {
-      final isConnected = await _apiService.testConnection();
-      setState(() {
-        _connectionStatus = isConnected;
-        _connectionMessage = isConnected 
-            ? '✅ Connected to server' 
-            : '❌ Cannot reach server';
-      });
-      
-      if (!isConnected) {
-        _addMessage(
-          "⚠️ Warning: Cannot connect to backend server. Please check your internet connection.",
-          isUser: false,
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _connectionStatus = false;
-        _connectionMessage = '❌ Connection failed: $e';
-      });
-    }
+    final ok = await _api.testConnection();
+    setState(() => _isConnected = ok);
   }
 
-  void _addMessage(String text, {required bool isUser}) {
+  Future<void> _send() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty || _isLoading) return;
+
+    _controller.clear();
     setState(() {
-      _messages.add(ChatMessage(
-        text: text,
-        isUser: isUser,
-        timestamp: DateTime.now(),
-      ));
+      _messages.add(_Message(text: text, isUser: true));
+      _isLoading = true;
     });
     _scrollToBottom();
+
+    try {
+      final resp = await _api.sendChatMessage(text);
+      final reply = resp['response'] ??
+          resp['text'] ??
+          resp['message'] ??
+          'No response';
+      setState(() => _messages.add(_Message(text: reply, isUser: false)));
+    } catch (e) {
+      setState(() => _messages.add(_Message(
+            text: 'Error: ${e.toString().replaceFirst("Exception: ", "")}',
+            isUser: false,
+          )));
+    } finally {
+      setState(() => _isLoading = false);
+      _scrollToBottom();
+    }
   }
 
   void _scrollToBottom() {
@@ -82,90 +74,19 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
   }
 
-  Future<void> _sendMessage() async {
-    final message = _messageController.text.trim();
-    if (message.isEmpty) return;
-
-    // Clear input immediately
-    _messageController.clear();
-    
-    // Add user message
-    _addMessage(message, isUser: true);
-
-    // Show loading
-    setState(() => _isLoading = true);
-
-    try {
-      print('\n🚀 Sending: $message');
-      
-      // Send the message
-      final response = await _apiService.sendChatMessage(message);
-      
-      print('✅ Got response: $response');
-      
-      // Get the AI's reply - try all possible field names
-      String botReply = 'Sorry, I couldn\'t understand that.';
-      
-      if (response is Map<String, dynamic>) {
-        // Try different possible response field names
-        botReply = response['response'] ?? 
-                   response['text'] ?? 
-                   response['message'] ?? 
-                   response['content'] ?? 
-                   response['reply'] ?? 
-                   response['answer'] ??
-                   response['data'] ??
-                   response.values.firstWhere(
-                     (v) => v is String && v.isNotEmpty, 
-                     orElse: () => 'No response from server'
-                   );
-      } else if (response is String) {
-        botReply = response;
-      }
-      
-      print('💬 Bot says: $botReply');
-      
-      // Add bot's response
-      _addMessage(botReply, isUser: false);
-      
-    } catch (e) {
-      print('❌ ERROR: $e');
-      
-      String errorMsg = e.toString().replaceFirst("Exception: ", "");
-      
-      // Show error in chat
-      _addMessage(
-        '⚠️ Error: $errorMsg',
-        isUser: false,
-      );
-      
-      // If it's a connection error, suggest testing connection
-      if (errorMsg.contains('internet') || 
-          errorMsg.contains('connection') ||
-          errorMsg.contains('reach')) {
-        _addMessage(
-          'Tap the "Test Connection" button below to diagnose the issue.',
-          isUser: false,
-        );
-      }
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  void _clearChat() {
+  void _clear() {
     setState(() {
       _messages.clear();
-      _addMessage(
-        "Hello! I'm Stremini AI. How can I help you today?",
+      _messages.add(_Message(
+        text: "Hello! I'm Stremini AI. How can I help you today?",
         isUser: false,
-      );
+      ));
     });
   }
 
   @override
   void dispose() {
-    _messageController.dispose();
+    _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -173,12 +94,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: theme.cardColor,
-        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -186,33 +106,28 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         title: Row(
           children: [
             Container(
-              width: 35,
-              height: 35,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
                 color: theme.primaryColor,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.bolt, color: Colors.white, size: 20),
+              child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Stremini AI',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
-                  if (_connectionStatus != null)
-                    Text(
-                      _connectionMessage,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: _connectionStatus! ? Colors.green : Colors.red,
-                      ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Stremini AI', style: TextStyle(fontSize: 17)),
+                if (_isConnected != null)
+                  Text(
+                    _isConnected! ? 'Connected' : 'Offline',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: _isConnected! ? Colors.green : Colors.red,
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ],
         ),
@@ -224,61 +139,56 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
-            onPressed: _clearChat,
+            onPressed: _clear,
             tooltip: 'Clear chat',
           ),
         ],
       ),
       body: Column(
         children: [
-          // Connection status banner
-          if (_connectionStatus == false)
+          // Connection warning
+          if (_isConnected == false)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               color: Colors.red.withOpacity(0.2),
               child: Row(
                 children: [
-                  const Icon(Icons.warning, color: Colors.red, size: 20),
+                  const Icon(Icons.warning, color: Colors.red, size: 18),
                   const SizedBox(width: 8),
-                  Expanded(
+                  const Expanded(
                     child: Text(
-                      'Not connected to server. Check internet connection.',
-                      style: TextStyle(color: Colors.red[300], fontSize: 13),
+                      'Not connected to server',
+                      style: TextStyle(color: Colors.red, fontSize: 13),
                     ),
                   ),
                   TextButton(
                     onPressed: _testConnection,
-                    child: const Text('Test', style: TextStyle(color: Colors.red)),
+                    child: const Text('Retry'),
                   ),
                 ],
               ),
             ),
 
-          // Messages list
+          // Messages
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.all(16),
               itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                return _buildMessageBubble(message);
-              },
+              itemBuilder: (ctx, i) => _buildBubble(_messages[i]),
             ),
           ),
 
-          // Loading indicator
+          // Loading
           if (_isLoading)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              alignment: Alignment.centerLeft,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(
-                    width: 20,
-                    height: 20,
+                    width: 18,
+                    height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       color: theme.primaryColor,
@@ -296,7 +206,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               ),
             ),
 
-          // Input field
+          // Input
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -320,7 +230,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                         borderRadius: BorderRadius.circular(24),
                       ),
                       child: TextField(
-                        controller: _messageController,
+                        controller: _controller,
                         decoration: InputDecoration(
                           hintText: 'Ask anything...',
                           hintStyle: TextStyle(color: theme.disabledColor),
@@ -329,20 +239,19 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                         style: TextStyle(color: theme.textTheme.bodyLarge?.color),
                         maxLines: null,
                         textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _sendMessage(),
+                        onSubmitted: (_) => _send(),
                         enabled: !_isLoading,
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  
                   IconButton(
                     icon: Icon(
                       Icons.send,
-                      size: 28,
+                      size: 26,
                       color: _isLoading ? theme.disabledColor : theme.primaryColor,
                     ),
-                    onPressed: _isLoading ? null : _sendMessage,
+                    onPressed: _isLoading ? null : _send,
                   ),
                 ],
               ),
@@ -353,16 +262,17 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     );
   }
 
-  Widget _buildMessageBubble(ChatMessage message) {
+  Widget _buildBubble(_Message msg) {
     final theme = Theme.of(context);
-    
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment: message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            msg.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!message.isUser) ...[
+          if (!msg.isUser) ...[
             Container(
               width: 32,
               height: 32,
@@ -370,55 +280,42 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 color: theme.primaryColor,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.bolt, color: Colors.white, size: 18),
+              child: const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
           ],
           Flexible(
             child: GestureDetector(
               onLongPress: () {
-                Clipboard.setData(ClipboardData(text: message.text));
+                Clipboard.setData(ClipboardData(text: msg.text));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Message copied'),
+                    content: Text('Copied to clipboard'),
                     duration: Duration(seconds: 1),
                   ),
                 );
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: message.isUser
+                  color: msg.isUser
                       ? theme.primaryColor.withOpacity(0.2)
                       : theme.cardColor,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SelectableText(
-                      message.text,
-                      style: TextStyle(
-                        color: theme.textTheme.bodyLarge?.color,
-                        fontSize: 15,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _formatTime(message.timestamp),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: theme.disabledColor,
-                      ),
-                    ),
-                  ],
+                child: SelectableText(
+                  msg.text,
+                  style: TextStyle(
+                    color: theme.textTheme.bodyLarge?.color,
+                    fontSize: 15,
+                    height: 1.4,
+                  ),
                 ),
               ),
             ),
           ),
-          if (message.isUser) ...[
-            const SizedBox(width: 12),
+          if (msg.isUser) ...[
+            const SizedBox(width: 10),
             Container(
               width: 32,
               height: 32,
@@ -433,31 +330,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       ),
     );
   }
-
-  String _formatTime(DateTime time) {
-    final now = DateTime.now();
-    final diff = now.difference(time);
-    
-    if (diff.inSeconds < 60) {
-      return 'Just now';
-    } else if (diff.inMinutes < 60) {
-      return '${diff.inMinutes}m ago';
-    } else if (diff.inHours < 24) {
-      return '${diff.inHours}h ago';
-    } else {
-      return '${time.hour}:${time.minute.toString().padLeft(2, '0')}';
-    }
-  }
 }
 
-class ChatMessage {
+class _Message {
   final String text;
   final bool isUser;
-  final DateTime timestamp;
 
-  ChatMessage({
-    required this.text,
-    required this.isUser,
-    required this.timestamp,
-  });
+  _Message({required this.text, required this.isUser});
 }
