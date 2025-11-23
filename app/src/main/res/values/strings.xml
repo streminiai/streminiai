@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Stremini AI</string>
+    <string name="accessibility_service_description">Stremini AI needs accessibility permission to read screen content for scam detection and security analysis. This helps protect you from phishing, scams, and suspicious content.</string>
 </resources>
