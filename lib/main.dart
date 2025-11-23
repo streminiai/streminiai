@@ -5,6 +5,10 @@ import 'package:stremniapp/theme/app_theme.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+// Colors
+const Color electricNeonBlue = Color(0xFF00F0FF);
+const Color inactiveGray = Color(0xFF3A3A3C);
+
 // Overlay entry point - runs in separate isolate
 @pragma("vm:entry-point")
 void overlayMain() {
@@ -19,16 +23,16 @@ void overlayMain() {
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const StreminiChatbot());
+  runApp(const StreminiApp());
 }
 
-class StreminiChatbot extends StatelessWidget {
-  const StreminiChatbot({Key? key}) : super(key: key);
+class StreminiApp extends StatelessWidget {
+  const StreminiApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Stremini Chatbot',
+      title: 'Stremini AI',
       theme: AppTheme.darkTheme,
       initialRoute: AppRouter.home,
       onGenerateRoute: AppRouter.generateRoute,
@@ -37,7 +41,7 @@ class StreminiChatbot extends StatelessWidget {
   }
 }
 
-// Enhanced Overlay Widget with 4-Button Menu
+// ==================== OVERLAY WIDGET ====================
 class OverlayWidget extends StatefulWidget {
   const OverlayWidget({Key? key}) : super(key: key);
 
@@ -45,226 +49,159 @@ class OverlayWidget extends StatefulWidget {
   State<OverlayWidget> createState() => _OverlayWidgetState();
 }
 
-class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProviderStateMixin {
+class _OverlayWidgetState extends State<OverlayWidget>
+    with TickerProviderStateMixin {
+  // Menu state
   bool _isMenuOpen = false;
+
+  // Feature states - icons turn blue when active
+  bool _isChatbotActive = false;
+  bool _isScamDetectorActive = false;
+
+  // UI states
   bool _isChatOpen = false;
   bool _isAnalyzing = false;
-  bool _analysisResultVisible = false;
-  String _analysisResultSafety = '';
-  String _analysisResultReason = '';
-  String _currentStatus = 'idle';
-  late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _chatSlideAnimation;
-  
-  // Chat variables
-  final TextEditingController _messageController = TextEditingController();
+  bool _showScanResults = false;
+  String _scanResultText = '';
+  String _scanSafetyLevel = 'safe';
+
+  // Chat
+  final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final List<ChatMessage> _messages = [];
+  final List<_ChatMsg> _messages = [];
   bool _isSending = false;
+
+  // Animation
+  late AnimationController _pulseAnim;
 
   @override
   void initState() {
     super.initState();
-    
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
+    _pulseAnim = AnimationController(
+      duration: const Duration(milliseconds: 1500),
       vsync: this,
-    );
-    
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
-
-    _chatSlideAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
-    );
-
-    // Listen for messages from main app
-    FlutterOverlayWindow.overlayListener.listen((data) {
-      if (data == 'analyzing') {
-        setState(() {
-          _isAnalyzing = true;
-          _currentStatus = 'analyzing';
-        });
-      } else if (data == 'complete') {
-        setState(() {
-          _isAnalyzing = false;
-          _currentStatus = 'safe';
-        });
-        Future.delayed(const Duration(seconds: 3), () {
-          if (mounted) setState(() => _currentStatus = 'idle');
-        });
-      } else if (data == 'scam_detected') {
-        setState(() {
-          _isAnalyzing = false;
-          _currentStatus = 'danger';
-        });
-      }
-    });
+    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
-    _messageController.dispose();
+    _pulseAnim.dispose();
+    _msgController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  Color _getMainButtonColor() {
-    switch (_currentStatus) {
-      case 'analyzing':
-        return const Color(0xFF3B82F6);
-      case 'safe':
-        return const Color(0xFF10B981);
-      case 'danger':
-        return const Color(0xFFEF4444);
-      default:
-        return const Color(0xFF3B82F6);
+  // Toggle chatbot - blue when active
+  void _toggleChatbot() {
+    setState(() {
+      if (_isChatbotActive) {
+        _isChatbotActive = false;
+        _isChatOpen = false;
+      } else {
+        _isChatbotActive = true;
+        _isChatOpen = true;
+      }
+      _isMenuOpen = false;
+    });
+  }
+
+  // Close chat via X button
+  void _closeChat() {
+    setState(() {
+      _isChatOpen = false;
+      _isChatbotActive = false;
+    });
+  }
+
+  // Toggle scam detector - blue when active
+  void _toggleScamDetector() async {
+    if (_isScamDetectorActive) {
+      // Deactivate
+      setState(() {
+        _isScamDetectorActive = false;
+        _showScanResults = false;
+        _isMenuOpen = false;
+      });
+    } else {
+      // Activate and scan
+      setState(() {
+        _isScamDetectorActive = true;
+        _isAnalyzing = true;
+        _isMenuOpen = false;
+      });
+      await _performScan();
     }
   }
 
-  void _handleMainButtonTap() {
-    setState(() {
-      _isMenuOpen = !_isMenuOpen;
-    });
-  }
-
-  void _openChatbot() {
-    setState(() {
-      _isChatOpen = true;
-      _isMenuOpen = false;
-    });
-    _animationController.forward();
-  }
-
-  void _openAnalyzeScreen() async {
-    setState(() {
-      _isMenuOpen = false;
-      _isAnalyzing = true;
-      _currentStatus = 'analyzing';
-    });
-
+  Future<void> _performScan() async {
     try {
-      // In a real implementation, you would capture the screen here
-      // For now, we'll send a dummy text for analysis
-      final response = await http.post(
+      await Future.delayed(const Duration(seconds: 2));
+
+      final resp = await http.post(
         Uri.parse('https://ai-keyboard-backend.vishwajeetadkine705.workers.dev/security/scan-content'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'content': 'Sample screen content for analysis. This could be OCR text from screen capture.'
-        }),
+        body: jsonEncode({'content': 'Screen content analysis request'}),
       ).timeout(const Duration(seconds: 30));
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final safety = data['safety'] ?? 'Unknown';
-        final reason = data['reason'] ?? 'Analysis complete';
-        
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        final safety = (data['safety'] ?? 'Safe').toString();
+        final reason = (data['reason'] ?? 'Analysis complete').toString();
+
+        String level = 'safe';
+        if (safety.toLowerCase().contains('scam') ||
+            safety.toLowerCase().contains('phishing')) {
+          level = 'scam';
+        } else if (safety.toLowerCase().contains('warning') ||
+            safety.toLowerCase().contains('suspicious')) {
+          level = 'warning';
+        }
+
         setState(() {
           _isAnalyzing = false;
-          _currentStatus = safety.toLowerCase().contains('safe') ? 'safe' : 'danger';
-        });
-
-        // Show result notification
-        _showAnalysisResult(safety, reason);
-        
-        // Reset status after 3 seconds
-        Future.delayed(const Duration(seconds: 3), () {
-          if (mounted) setState(() => _currentStatus = 'idle');
+          _showScanResults = true;
+          _scanResultText = '$safety\n$reason';
+          _scanSafetyLevel = level;
         });
       } else {
-        throw Exception('Analysis failed');
+        throw Exception('Server error');
       }
     } catch (e) {
       setState(() {
         _isAnalyzing = false;
-        _currentStatus = 'idle';
+        _showScanResults = true;
+        _scanResultText = 'Error: Could not analyze screen';
+        _scanSafetyLevel = 'warning';
       });
-      _showAnalysisResult('Error', 'Could not analyze screen. Please try again.');
     }
   }
 
-  void _showAnalysisResult(String safety, String reason) {
-    // This will be shown as a floating notification
-    setState(() {
-      _analysisResultVisible = true;
-      _analysisResultSafety = safety;
-      _analysisResultReason = reason;
-    });
-
-    // Auto-hide after 5 seconds
-    Future.delayed(const Duration(seconds: 5), () {
-      if (mounted) {
-        setState(() => _analysisResultVisible = false);
-      }
-    });
-  }
-
-  void _openAIKeyboard() {
-    setState(() => _isMenuOpen = false);
-    // Send message to main app to open AI Keyboard
-    FlutterOverlayWindow.shareData('open_ai_keyboard');
-  }
-
-  void _closeOverlay() {
-    FlutterOverlayWindow.closeOverlay();
-  }
-
-  void _closeChat() {
-    _animationController.reverse().then((_) {
-      setState(() {
-        _isChatOpen = false;
-      });
-    });
-  }
-
   Future<void> _sendMessage() async {
-    final message = _messageController.text.trim();
-    if (message.isEmpty) return;
+    final msg = _msgController.text.trim();
+    if (msg.isEmpty || _isSending) return;
 
     setState(() {
-      _messages.add(ChatMessage(
-        text: message,
-        isUser: true,
-        timestamp: DateTime.now(),
-      ));
+      _messages.add(_ChatMsg(text: msg, isUser: true));
       _isSending = true;
     });
-
-    _messageController.clear();
+    _msgController.clear();
     _scrollToBottom();
 
     try {
-      final response = await http.post(
+      final resp = await http.post(
         Uri.parse('https://ai-keyboard-backend.vishwajeetadkine705.workers.dev/chat/message'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'message': message}),
+        body: jsonEncode({'message': msg}),
       ).timeout(const Duration(seconds: 30));
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final botReply = data['response'] ?? 'No response';
-        
-        setState(() {
-          _messages.add(ChatMessage(
-            text: botReply,
-            isUser: false,
-            timestamp: DateTime.now(),
-          ));
-        });
-      } else {
-        throw Exception('Failed to get response');
+      String reply = 'Sorry, could not get response.';
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        reply = data['response'] ?? data['text'] ?? data['message'] ?? reply;
       }
+      setState(() => _messages.add(_ChatMsg(text: reply, isUser: false)));
     } catch (e) {
-      setState(() {
-        _messages.add(ChatMessage(
-          text: 'Sorry, I couldn\'t process that. Please try again.',
-          isUser: false,
-          timestamp: DateTime.now(),
-        ));
-      });
+      setState(() => _messages.add(_ChatMsg(text: 'Error: $e', isUser: false)));
     } finally {
       setState(() => _isSending = false);
       _scrollToBottom();
@@ -283,721 +220,489 @@ class _OverlayWidgetState extends State<OverlayWidget> with SingleTickerProvider
     });
   }
 
+  bool _hasActiveFeature() => _isChatbotActive || _isScamDetectorActive;
+
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    
     return Material(
       color: Colors.transparent,
       child: Stack(
         children: [
-          // Analysis Result Notification (Floating)
-          if (_analysisResultVisible && !_isChatOpen)
-            Positioned(
-              left: 16,
-              right: 16,
-              top: 100,
-              child: _buildAnalysisResultCard(),
-            ),
+          // Scan results overlay
+          if (_showScanResults && _isScamDetectorActive) _buildScanResultTag(),
 
-          // Floating Chat Window (Half Screen from Bottom)
-          if (_isChatOpen)
-            AnimatedBuilder(
-              animation: _chatSlideAnimation,
-              builder: (context, child) {
-                return Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: screenSize.height * 0.45,
-                  child: Transform.translate(
-                    offset: Offset(0, screenSize.height * 0.45 * _chatSlideAnimation.value),
-                    child: child,
-                  ),
-                );
-              },
-              child: _buildFloatingChatWindow(screenSize),
-            ),
-          
-          // Main Floating Button and Menu
-          if (!_isChatOpen) ...[
-            // Background overlay (when menu is open)
-            if (_isMenuOpen)
-              Positioned.fill(
-                child: GestureDetector(
-                  onTap: () => setState(() => _isMenuOpen = false),
-                  child: Container(
-                    color: Colors.black.withOpacity(0.3),
-                  ),
-                ),
-              ),
+          // Scanning animation
+          if (_isAnalyzing) _buildScanningOverlay(),
 
-            // 4-Button Menu (appears above main button)
-            if (_isMenuOpen) ...[
-              // Button 1: Chatbot
-              Positioned(
-                right: 16,
-                bottom: 260,
-                child: TweenAnimationBuilder<double>(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutBack,
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  builder: (context, value, child) {
-                    return Transform.scale(
-                      scale: value,
-                      child: Opacity(opacity: value, child: child),
-                    );
-                  },
-                  child: _buildMenuButton(
-                    icon: Icons.chat_bubble,
-                    label: 'Chatbot',
-                    color: const Color(0xFF3B82F6),
-                    onTap: _openChatbot,
-                  ),
-                ),
-              ),
+          // Chat window
+          if (_isChatOpen) _buildChatWindow(),
 
-              // Button 2: Analyze Screen
-              Positioned(
-                right: 16,
-                bottom: 190,
-                child: TweenAnimationBuilder<double>(
-                  duration: const Duration(milliseconds: 350),
-                  curve: Curves.easeOutBack,
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  builder: (context, value, child) {
-                    return Transform.scale(
-                      scale: value,
-                      child: Opacity(opacity: value, child: child),
-                    );
-                  },
-                  child: _buildMenuButton(
-                    icon: Icons.screen_search_desktop,
-                    label: 'Analyze Screen',
-                    color: const Color(0xFF10B981),
-                    onTap: _openAnalyzeScreen,
-                  ),
-                ),
-              ),
-
-              // Button 3: AI Keyboard
-              Positioned(
-                right: 16,
-                bottom: 120,
-                child: TweenAnimationBuilder<double>(
-                  duration: const Duration(milliseconds: 400),
-                  curve: Curves.easeOutBack,
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  builder: (context, value, child) {
-                    return Transform.scale(
-                      scale: value,
-                      child: Opacity(opacity: value, child: child),
-                    );
-                  },
-                  child: _buildMenuButton(
-                    icon: Icons.keyboard,
-                    label: 'AI Keyboard',
-                    color: const Color(0xFF8B5CF6),
-                    onTap: _openAIKeyboard,
-                  ),
-                ),
-              ),
-
-              // Button 4: Close
-              Positioned(
-                right: 16,
-                bottom: 90,
-                child: TweenAnimationBuilder<double>(
-                  duration: const Duration(milliseconds: 450),
-                  curve: Curves.easeOutBack,
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  builder: (context, value, child) {
-                    return Transform.scale(
-                      scale: value,
-                      child: Opacity(opacity: value, child: child),
-                    );
-                  },
-                  child: _buildMenuButton(
-                    icon: Icons.close,
-                    label: 'Close',
-                    color: const Color(0xFFEF4444),
-                    onTap: _closeOverlay,
-                  ),
-                ),
-              ),
-            ],
-
-            // Main floating button
-            Positioned(
-              right: 16,
-              bottom: 20,
+          // Menu background
+          if (_isMenuOpen)
+            Positioned.fill(
               child: GestureDetector(
-                onTap: _handleMainButtonTap,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        _getMainButtonColor(),
-                        _getMainButtonColor().withOpacity(0.7),
+                onTap: () => setState(() => _isMenuOpen = false),
+                child: Container(color: Colors.black38),
+              ),
+            ),
+
+          // Menu buttons
+          if (_isMenuOpen) ...[
+            _buildMenuBtn(
+              bottom: 200,
+              icon: Icons.chat_bubble_rounded,
+              label: 'AI Chatbot',
+              isActive: _isChatbotActive,
+              onTap: _toggleChatbot,
+            ),
+            _buildMenuBtn(
+              bottom: 140,
+              icon: Icons.screen_search_desktop_rounded,
+              label: 'Scan Screen',
+              isActive: _isScamDetectorActive,
+              onTap: _toggleScamDetector,
+            ),
+            _buildMenuBtn(
+              bottom: 80,
+              icon: Icons.close_rounded,
+              label: 'Close Bubble',
+              isActive: false,
+              onTap: () => FlutterOverlayWindow.closeOverlay(),
+              isClose: true,
+            ),
+          ],
+
+          // Main bubble
+          Positioned(
+            right: 12,
+            bottom: 20,
+            child: GestureDetector(
+              onTap: () => setState(() => _isMenuOpen = !_isMenuOpen),
+              child: AnimatedBuilder(
+                animation: _pulseAnim,
+                builder: (ctx, child) {
+                  final glow = _hasActiveFeature() || _isAnalyzing;
+                  return Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: glow
+                            ? [electricNeonBlue, const Color(0xFF0080FF)]
+                            : [const Color(0xFF3B82F6), const Color(0xFF1D4ED8)],
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (glow ? electricNeonBlue : const Color(0xFF3B82F6))
+                              .withOpacity(0.4 + _pulseAnim.value * 0.2),
+                          blurRadius: 16 + _pulseAnim.value * 8,
+                          spreadRadius: 2,
+                        ),
                       ],
                     ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _getMainButtonColor().withOpacity(0.4),
-                        blurRadius: 20,
-                        spreadRadius: 2,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: AnimatedRotation(
-                    duration: const Duration(milliseconds: 300),
-                    turns: _isMenuOpen ? 0.125 : 0, // 45 degree rotation
                     child: _isAnalyzing
                         ? const Padding(
                             padding: EdgeInsets.all(15),
                             child: CircularProgressIndicator(
                               color: Colors.white,
-                              strokeWidth: 3,
+                              strokeWidth: 2.5,
                             ),
                           )
                         : Icon(
-                            _isMenuOpen ? Icons.close : _getIconForStatus(),
+                            _isMenuOpen ? Icons.close : Icons.auto_awesome,
                             color: Colors.white,
-                            size: 28,
+                            size: 26,
                           ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
-
-            // Status indicator
-            if (_currentStatus != 'idle' && !_isMenuOpen)
-              Positioned(
-                right: 20,
-                bottom: 64,
-                child: Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: _currentStatus == 'safe'
-                        ? Colors.green
-                        : _currentStatus == 'danger'
-                            ? Colors.red
-                            : Colors.blue,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildMenuButton({
+  Widget _buildMenuBtn({
+    required double bottom,
     required IconData icon,
     required String label,
-    required Color color,
+    required bool isActive,
     required VoidCallback onTap,
+    bool isClose = false,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Label
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.8),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: color.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          
-          // Icon Button
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [color, color.withOpacity(0.7)],
-              ),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: color.withOpacity(0.4),
-                  blurRadius: 15,
-                  spreadRadius: 1,
-                  offset: const Offset(0, 3),
+    return Positioned(
+      right: 12,
+      bottom: bottom,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.85),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isActive ? electricNeonBlue.withOpacity(0.6) : Colors.white24,
                 ),
-              ],
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isActive ? electricNeonBlue : Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
-            child: Icon(icon, color: Colors.white, size: 24),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isClose
+                      ? [const Color(0xFFEF4444), const Color(0xFFDC2626)]
+                      : isActive
+                          ? [electricNeonBlue, const Color(0xFF0080FF)]
+                          : [inactiveGray, const Color(0xFF2A2A2C)],
+                ),
+                shape: BoxShape.circle,
+                border: isActive && !isClose
+                    ? Border.all(color: electricNeonBlue, width: 2)
+                    : null,
+                boxShadow: isActive && !isClose
+                    ? [BoxShadow(color: electricNeonBlue.withOpacity(0.5), blurRadius: 12)]
+                    : null,
+              ),
+              child: Icon(icon, color: Colors.white, size: 22),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildFloatingChatWindow(Size screenSize) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF1a1a1a),
-            Color(0xFF0a0a0a),
-          ],
-        ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.5),
-            blurRadius: 20,
-            spreadRadius: 5,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Drag Handle
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(2),
+  Widget _buildScanningOverlay() {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: AnimatedBuilder(
+          animation: _pulseAnim,
+          builder: (ctx, _) {
+            return Container(
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: electricNeonBlue.withOpacity(0.3 + _pulseAnim.value * 0.3),
+                  width: 3,
                 ),
               ),
-            ),
-          ),
-
-          // Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: Colors.white.withOpacity(0.1),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
-                    ),
-                    borderRadius: BorderRadius.circular(10),
+                    color: Colors.black.withOpacity(0.85),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: electricNeonBlue),
                   ),
-                  child: const Icon(Icons.auto_awesome, color: Colors.white, size: 22),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        'Stremini AI',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: electricNeonBlue,
+                          strokeWidth: 2,
                         ),
                       ),
-                      Text(
-                        'Always here to help',
-                        style: TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12,
-                        ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Scanning screen...',
+                        style: TextStyle(color: Colors.white, fontSize: 14),
                       ),
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: _closeChat,
-                ),
-              ],
-            ),
-          ),
-
-          // Messages
-          Expanded(
-            child: _messages.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 70,
-                          height: 70,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
-                            ),
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 35),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Start a conversation',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Ask me anything!',
-                          style: TextStyle(
-                            color: Colors.white60,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      return _buildMessageBubble(_messages[index]);
-                    },
-                  ),
-          ),
-
-          // Loading indicator
-          if (_isSending)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              alignment: Alignment.centerLeft,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.blue[300],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Thinking...',
-                    style: TextStyle(
-                      fontStyle: FontStyle.italic,
-                      color: Colors.white.withOpacity(0.5),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
               ),
-            ),
-
-          // Input field
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.3),
-              border: Border(
-                top: BorderSide(
-                  color: Colors.white.withOpacity(0.1),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: SafeArea(
-              top: false,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: TextField(
-                        controller: _messageController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: 'Message...',
-                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-                          border: InputBorder.none,
-                        ),
-                        maxLines: null,
-                        onSubmitted: (_) => _sendMessage(),
-                        enabled: !_isSending,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                      onPressed: _isSending ? null : _sendMessage,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildMessageBubble(ChatMessage message) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment: message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!message.isUser) ...[
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: message.isUser
-                    ? const Color(0xFF3B82F6)
-                    : Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                message.text,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  height: 1.4,
-                ),
-              ),
-            ),
-          ),
-          if (message.isUser) ...[
-            const SizedBox(width: 8),
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Icon(Icons.person, color: Colors.white, size: 18),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  IconData _getIconForStatus() {
-    switch (_currentStatus) {
-      case 'safe':
-        return Icons.check_circle;
-      case 'danger':
-        return Icons.warning;
-      case 'analyzing':
-        return Icons.security;
+  Widget _buildScanResultTag() {
+    Color c;
+    IconData ic;
+    switch (_scanSafetyLevel) {
+      case 'scam':
+        c = const Color(0xFFEF4444);
+        ic = Icons.dangerous;
+        break;
+      case 'warning':
+        c = const Color(0xFFF59E0B);
+        ic = Icons.warning;
+        break;
       default:
-        return Icons.auto_awesome;
+        c = const Color(0xFF10B981);
+        ic = Icons.check_circle;
     }
-  }
 
-  Widget _buildAnalysisResultCard() {
-    final isSafe = _analysisResultSafety.toLowerCase().contains('safe') && 
-                   !_analysisResultSafety.toLowerCase().contains('unsafe');
-    final isDangerous = _analysisResultSafety.toLowerCase().contains('scam') || 
-                       _analysisResultSafety.toLowerCase().contains('phishing') ||
-                       _analysisResultSafety.toLowerCase().contains('unsafe');
-
-    Color cardColor = isSafe ? const Color(0xFF10B981) : 
-                     isDangerous ? const Color(0xFFEF4444) : 
-                     const Color(0xFFF59E0B);
-    
-    IconData cardIcon = isSafe ? Icons.check_circle : 
-                       isDangerous ? Icons.dangerous : 
-                       Icons.warning;
-
-    return TweenAnimationBuilder<double>(
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeOutBack,
-      tween: Tween(begin: 0.0, end: 1.0),
-      builder: (context, value, child) {
-        return Transform.scale(
-          scale: value,
-          child: Opacity(
-            opacity: value,
-            child: child,
-          ),
-        );
-      },
+    return Positioned(
+      left: 16,
+      right: 80,
+      top: 100,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              cardColor,
-              cardColor.withOpacity(0.8),
-            ],
-          ),
+          color: c.withOpacity(0.95),
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: cardColor.withOpacity(0.4),
-              blurRadius: 20,
-              spreadRadius: 2,
-              offset: const Offset(0, 4),
+          boxShadow: [BoxShadow(color: c.withOpacity(0.4), blurRadius: 16)],
+        ),
+        child: Row(
+          children: [
+            Icon(ic, color: Colors.white, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                _scanResultText,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+              ),
             ),
+            GestureDetector(
+              onTap: () => setState(() => _showScanResults = false),
+              child: const Icon(Icons.close, color: Colors.white, size: 20),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatWindow() {
+    return Positioned(
+      left: 12,
+      right: 12,
+      bottom: 90,
+      child: Container(
+        height: 360,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: electricNeonBlue.withOpacity(0.3)),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20),
           ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(cardIcon, color: Colors.white, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _analysisResultSafety,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Screen Analysis Complete',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 20),
-                  onPressed: () {
-                    setState(() => _analysisResultVisible = false);
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+            // Header
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(8),
+                color: const Color(0xFF252525),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              child: Text(
-                _analysisResultReason,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  height: 1.4,
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [electricNeonBlue, Color(0xFF0080FF)],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Stremini AI',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  _headerBtn(Icons.open_in_full, () {
+                    FlutterOverlayWindow.shareData('fullscreen_chat');
+                  }),
+                  const SizedBox(width: 6),
+                  _headerBtn(Icons.drag_indicator, null),
+                  const SizedBox(width: 6),
+                  _headerBtn(Icons.close, _closeChat),
+                ],
+              ),
+            ),
+
+            // Messages
+            Expanded(
+              child: _messages.isEmpty
+                  ? Center(
+                      child: Text(
+                        'Start a conversation',
+                        style: TextStyle(color: Colors.white.withOpacity(0.4)),
+                      ),
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(12),
+                      itemCount: _messages.length,
+                      itemBuilder: (ctx, i) => _chatBubble(_messages[i]),
+                    ),
+            ),
+
+            // Typing
+            if (_isSending)
+              Padding(
+                padding: const EdgeInsets.only(left: 14, bottom: 4),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: electricNeonBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('Typing...', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  ],
                 ),
+              ),
+
+            // Input
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(
+                color: Color(0xFF252525),
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.mic, color: Colors.white70, size: 20),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: TextField(
+                        controller: _msgController,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Type a message...',
+                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                        onSubmitted: (_) => _sendMessage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _sendMessage,
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [electricNeonBlue, Color(0xFF0080FF)],
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.send, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _headerBtn(IconData icon, VoidCallback? onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: Colors.white70, size: 16),
+      ),
+    );
+  }
+
+  Widget _chatBubble(_ChatMsg m) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: m.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!m.isUser)
+            Container(
+              width: 26,
+              height: 26,
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [electricNeonBlue, Color(0xFF0080FF)],
+                ),
+                borderRadius: BorderRadius.circular(7),
+              ),
+              child: const Icon(Icons.auto_awesome, color: Colors.white, size: 14),
+            ),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: m.isUser
+                    ? electricNeonBlue.withOpacity(0.2)
+                    : Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(14),
+                border: m.isUser
+                    ? Border.all(color: electricNeonBlue.withOpacity(0.3))
+                    : null,
+              ),
+              child: Text(
+                m.text,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class ChatMessage {
+class _ChatMsg {
   final String text;
   final bool isUser;
-  final DateTime timestamp;
-
-  ChatMessage({
-    required this.text,
-    required this.isUser,
-    required this.timestamp,
-  });
+  _ChatMsg({required this.text, required this.isUser});
 }
