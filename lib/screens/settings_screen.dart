@@ -10,8 +10,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  Map<String, PermissionStatus> _permissionStatuses = {};
-  bool _isLoading = false;
+  bool _isLoading = true;
+  Map<Permission, PermissionStatus> _statuses = {};
 
   @override
   void initState() {
@@ -21,62 +21,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadPermissions() async {
     setState(() => _isLoading = true);
-    
-    final statuses = await [
-      Permission.camera,
-      Permission.photos,
-      Permission.storage,
-      Permission.systemAlertWindow,
-    ].request();
+
+    final statuses = <Permission, PermissionStatus>{};
+
+    statuses[Permission.camera] = await Permission.camera.status;
+    statuses[Permission.photos] = await Permission.photos.status;
+    statuses[Permission.systemAlertWindow] = await Permission.systemAlertWindow.status;
 
     setState(() {
-      _permissionStatuses = statuses;
+      _statuses = statuses;
       _isLoading = false;
     });
   }
 
-  Future<void> _requestPermission(Permission permission, String name) async {
-    final status = await permission.request();
-    
-    setState(() {
-      _permissionStatuses[permission] = status;
-    });
+  Future<void> _requestPermission(Permission perm, String name) async {
+    final status = await perm.request();
+
+    setState(() => _statuses[perm] = status);
 
     if (status.isGranted) {
-      _showSnackBar('✅ $name permission granted', Colors.green);
+      _showSnack('$name permission granted', Colors.green);
     } else if (status.isPermanentlyDenied) {
-      _showPermissionDeniedDialog(name);
+      _showSettingsDialog(name);
     } else {
-      _showSnackBar('❌ $name permission denied', Colors.red);
+      _showSnack('$name permission denied', Colors.red);
     }
   }
 
-  void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-        duration: const Duration(seconds: 2),
-      ),
+  Future<void> _requestAll() async {
+    setState(() => _isLoading = true);
+
+    await _requestPermission(Permission.camera, 'Camera');
+    await _requestPermission(Permission.photos, 'Photos');
+    await _requestPermission(Permission.systemAlertWindow, 'Overlay');
+
+    await _loadPermissions();
+
+    final allGranted = _statuses.values.every((s) => s.isGranted);
+    _showSnack(
+      allGranted ? 'All permissions granted!' : 'Some permissions not granted',
+      allGranted ? Colors.green : Colors.orange,
     );
   }
 
-  void _showPermissionDeniedDialog(String permissionName) {
+  void _showSnack(String msg, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: color),
+    );
+  }
+
+  void _showSettingsDialog(String name) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Permission Required'),
-        content: Text(
-          '$permissionName permission is required for this feature. Please enable it in app settings.',
-        ),
+        content: Text('$name permission was denied. Enable it in app settings.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(ctx);
               openAppSettings();
             },
             child: const Text('Open Settings'),
@@ -91,59 +98,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-      ),
+      appBar: AppBar(title: const Text('Settings')),
       drawer: const AppDrawer(),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // App Info Section
+                // App Info
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Row(
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: theme.primaryColor,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(Icons.security, color: Colors.white, size: 30),
+                        ),
+                        const SizedBox(width: 16),
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              width: 50,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: theme.primaryColor,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.security,
-                                color: Colors.white,
-                                size: 28,
-                              ),
+                            Text(
+                              'Stremini AI',
+                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
-                                  Text(
-                                    'Stremini AI',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Version 1.0.0',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            Text('Version 1.0.0', style: TextStyle(color: Colors.grey)),
                           ],
                         ),
                       ],
@@ -154,175 +139,144 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 24),
 
                 // Permissions Section
-                Text(
-                  'Permissions',
-                  style: theme.textTheme.titleLarge,
-                ),
+                Text('Permissions', style: theme.textTheme.titleLarge),
                 const SizedBox(height: 8),
-                const Text(
-                  'Manage app permissions for optimal functionality',
-                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                Text(
+                  'Manage app permissions for full functionality',
+                  style: theme.textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 16),
 
-                // Internet Permission (Always Granted)
-                _buildPermissionCard(
+                _buildPermissionTile(
                   icon: Icons.wifi,
-                  title: 'Internet Access',
-                  description: 'Required for AI chat and analysis',
+                  title: 'Internet',
+                  desc: 'Required for AI features',
                   status: PermissionStatus.granted,
-                  onTap: null, // Cannot be changed
+                  onTap: null,
                 ),
 
-                // Camera Permission
-                _buildPermissionCard(
+                _buildPermissionTile(
                   icon: Icons.camera_alt,
                   title: 'Camera',
-                  description: 'Take photos for content analysis',
-                  status: _permissionStatuses[Permission.camera],
+                  desc: 'Take photos for analysis',
+                  status: _statuses[Permission.camera],
                   onTap: () => _requestPermission(Permission.camera, 'Camera'),
                 ),
 
-                // Storage/Photos Permission
-                _buildPermissionCard(
+                _buildPermissionTile(
                   icon: Icons.photo_library,
-                  title: 'Photos & Media',
-                  description: 'Access gallery images for analysis',
-                  status: _permissionStatuses[Permission.photos] ??
-                      _permissionStatuses[Permission.storage],
-                  onTap: () => _requestPermission(
-                    Permission.photos,
-                    'Photos & Media',
-                  ),
+                  title: 'Photos',
+                  desc: 'Access images for analysis',
+                  status: _statuses[Permission.photos],
+                  onTap: () => _requestPermission(Permission.photos, 'Photos'),
                 ),
 
-                // Overlay Permission
-                _buildPermissionCard(
+                _buildPermissionTile(
                   icon: Icons.layers,
-                  title: 'Display Over Other Apps',
-                  description: 'Show floating security button',
-                  status: _permissionStatuses[Permission.systemAlertWindow],
-                  onTap: () => _requestPermission(
-                    Permission.systemAlertWindow,
-                    'Overlay',
-                  ),
+                  title: 'Display Over Apps',
+                  desc: 'Show floating bubble',
+                  status: _statuses[Permission.systemAlertWindow],
+                  onTap: () => _requestPermission(Permission.systemAlertWindow, 'Overlay'),
                 ),
 
                 const SizedBox(height: 24),
 
-                // Grant All Button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _requestAllPermissions,
-                    icon: const Icon(Icons.check_circle),
-                    label: const Text('Grant All Permissions'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
+                // Grant All
+                ElevatedButton.icon(
+                  onPressed: _requestAll,
+                  icon: const Icon(Icons.check_circle),
+                  label: const Text('Grant All Permissions'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
-                // Open System Settings Button
                 OutlinedButton.icon(
                   onPressed: () => openAppSettings(),
                   icon: const Icon(Icons.settings),
                   label: const Text('Open System Settings'),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
 
                 const SizedBox(height: 32),
 
                 // About Section
-                Text(
-                  'About',
-                  style: theme.textTheme.titleLarge,
-                ),
-                const SizedBox(height: 16),
+                Text('About', style: theme.textTheme.titleLarge),
+                const SizedBox(height: 12),
 
                 ListTile(
                   leading: const Icon(Icons.info_outline),
                   title: const Text('About Stremini AI'),
-                  onTap: () => _showAboutDialog(),
+                  onTap: () => _showAbout(),
                 ),
 
                 ListTile(
                   leading: const Icon(Icons.privacy_tip_outlined),
                   title: const Text('Privacy Policy'),
-                  onTap: () {
-                    _showSnackBar('Privacy policy coming soon', Colors.blue);
-                  },
+                  onTap: () => _showSnack('Coming soon', Colors.blue),
                 ),
 
                 ListTile(
                   leading: const Icon(Icons.description_outlined),
                   title: const Text('Terms of Service'),
-                  onTap: () {
-                    _showSnackBar('Terms of service coming soon', Colors.blue);
-                  },
+                  onTap: () => _showSnack('Coming soon', Colors.blue),
                 ),
-
-                const SizedBox(height: 16),
               ],
             ),
     );
   }
 
-  Widget _buildPermissionCard({
+  Widget _buildPermissionTile({
     required IconData icon,
     required String title,
-    required String description,
+    required String desc,
     required PermissionStatus? status,
     required VoidCallback? onTap,
   }) {
     final isGranted = status?.isGranted ?? false;
-    final isPermanentlyDenied = status?.isPermanentlyDenied ?? false;
+    final isDenied = status?.isPermanentlyDenied ?? false;
 
-    Color statusColor = Colors.grey;
+    Color color = Colors.grey;
     IconData statusIcon = Icons.help_outline;
     String statusText = 'Unknown';
 
     if (isGranted) {
-      statusColor = Colors.green;
+      color = Colors.green;
       statusIcon = Icons.check_circle;
       statusText = 'Granted';
-    } else if (isPermanentlyDenied) {
-      statusColor = Colors.red;
+    } else if (isDenied) {
+      color = Colors.red;
       statusIcon = Icons.cancel;
       statusText = 'Denied';
     } else if (status != null) {
-      statusColor = Colors.orange;
+      color = Colors.orange;
       statusIcon = Icons.warning;
       statusText = 'Not Granted';
     }
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
-        leading: Icon(icon, color: statusColor, size: 28),
+        leading: Icon(icon, color: color, size: 26),
         title: Text(title),
-        subtitle: Text(description, style: const TextStyle(fontSize: 12)),
+        subtitle: Text(desc, style: const TextStyle(fontSize: 12)),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Icon(statusIcon, color: statusColor, size: 20),
-                Text(
-                  statusText,
-                  style: TextStyle(fontSize: 10, color: statusColor),
-                ),
+                Icon(statusIcon, color: color, size: 18),
+                Text(statusText, style: TextStyle(fontSize: 10, color: color)),
               ],
             ),
             if (onTap != null) ...[
               const SizedBox(width: 8),
-              const Icon(Icons.arrow_forward_ios, size: 16),
+              const Icon(Icons.arrow_forward_ios, size: 14),
             ],
           ],
         ),
@@ -331,23 +285,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _requestAllPermissions() async {
-    setState(() => _isLoading = true);
-
-    await _requestPermission(Permission.camera, 'Camera');
-    await _requestPermission(Permission.photos, 'Photos');
-    await _requestPermission(Permission.systemAlertWindow, 'Overlay');
-
-    await _loadPermissions();
-
-    if (_permissionStatuses.values.every((status) => status.isGranted)) {
-      _showSnackBar('✅ All permissions granted!', Colors.green);
-    } else {
-      _showSnackBar('⚠️ Some permissions not granted', Colors.orange);
-    }
-  }
-
-  void _showAboutDialog() {
+  void _showAbout() {
     showAboutDialog(
       context: context,
       applicationName: 'Stremini AI',
@@ -361,16 +299,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         child: const Icon(Icons.security, color: Colors.white, size: 32),
       ),
-      children: [
-        const SizedBox(height: 16),
-        const Text('Your intelligent digital bodyguard powered by AI.'),
-        const SizedBox(height: 8),
-        const Text('Protect yourself from scams, phishing, and online threats.'),
-        const SizedBox(height: 16),
-        const Text(
-          'Developed by Stremini AI Developers',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+      children: const [
+        SizedBox(height: 16),
+        Text('Your intelligent digital bodyguard powered by AI.'),
+        SizedBox(height: 8),
+        Text('Protect yourself from scams, phishing, and online threats.'),
       ],
     );
   }
