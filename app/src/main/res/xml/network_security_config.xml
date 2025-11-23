@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Trust all certificates in debug mode -->
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
@@ -8,7 +7,6 @@
         </trust-anchors>
     </base-config>
     
-    <!-- Specific domain configuration -->
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">vishwajeetadkine705.workers.dev</domain>
         <trust-anchors>
