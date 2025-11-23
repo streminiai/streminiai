@@ -7,99 +7,55 @@ import 'package:stremniapp/screens/chatbot_screen.dart';
 import 'package:stremniapp/screens/settings_screen.dart';
 import 'package:stremniapp/routing/app_drawer.dart';
 
-// Placeholder screens for other features
-class VoiceControlScreen extends StatelessWidget {
-  const VoiceControlScreen({Key? key}) : super(key: key);
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Voice Control')),
-        drawer: const AppDrawer(),
-        body: const Center(child: Text('Voice Control Screen')),
-      );
-}
-
-class AutoTaskScreen extends StatelessWidget {
-  const AutoTaskScreen({Key? key}) : super(key: key);
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Auto Task')),
-        drawer: const AppDrawer(),
-        body: const Center(child: Text('Auto Task Screen')),
-      );
-}
-
-class DigitalBodyguardScreen extends StatelessWidget {
-  const DigitalBodyguardScreen({Key? key}) : super(key: key);
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Digital Bodyguard')),
-        drawer: const AppDrawer(),
-        body: const Center(child: Text('Digital Bodyguard Screen')),
-      );
-}
-
 class AppRouter {
-  // Route names
-  static const String voice = '/voice';
   static const String home = '/home';
   static const String chat = '/chat';
   static const String analyzer = '/analyzer';
   static const String systemOverlay = '/system_overlay';
-  static const String autoTask = '/auto_task';
-  static const String bodyguard = '/bodyguard';
   static const String keyboard = '/keyboard';
-  static const String settings = '/settings';  // NEW
+  static const String settings = '/settings';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     Widget screen;
-    
+
     switch (settings.name) {
-      case voice:
-        screen = const VoiceControlScreen();
-        break;
-        
       case home:
         screen = const HomeScreen();
         break;
-        
+
       case chat:
         screen = const ChatbotScreen();
         break;
-        
+
       case analyzer:
         screen = const ScreenAnalyzerScreen();
         break;
-        
+
       case systemOverlay:
         screen = const SystemOverlayScreen();
         break;
-        
-      case autoTask:
-        screen = const AutoTaskScreen();
-        break;
-        
-      case bodyguard:
-        screen = const DigitalBodyguardScreen();
-        break;
-        
+
       case keyboard:
         screen = const CustomKeyboardScreen();
         break;
-        
-      case settings:  // NEW
+
+      case AppRouter.settings:
         screen = const SettingsScreen();
         break;
-        
+
       default:
         screen = Scaffold(
-          appBar: AppBar(),
+          appBar: AppBar(title: const Text('Not Found')),
           drawer: const AppDrawer(),
           body: Center(
             child: Text('No route defined for ${settings.name}'),
           ),
         );
     }
-    
-    return MaterialPageRoute(builder: (_) => screen, settings: settings);
+
+    return MaterialPageRoute(
+      builder: (_) => screen,
+      settings: settings,
+    );
   }
 }
