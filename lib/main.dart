@@ -488,7 +488,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
       right: 12,
       bottom: 90,
       child: Container(
-        height: 360,
+        height: 400,
         decoration: BoxDecoration(
           color: const Color(0xFF1A1A1A),
           borderRadius: BorderRadius.circular(20),
@@ -499,7 +499,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
         ),
         child: Column(
           children: [
-            // Header
+            // Header with X button
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
@@ -530,13 +530,19 @@ class _OverlayWidgetState extends State<OverlayWidget>
                       ),
                     ),
                   ),
-                  _headerBtn(Icons.open_in_full, () {
-                    FlutterOverlayWindow.shareData('fullscreen_chat');
-                  }),
-                  const SizedBox(width: 6),
-                  _headerBtn(Icons.drag_indicator, null),
-                  const SizedBox(width: 6),
-                  _headerBtn(Icons.close, _closeChat),
+                  // X Close button (like WhatsApp)
+                  GestureDetector(
+                    onTap: _closeChat,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.close, color: Colors.white70, size: 20),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -545,9 +551,38 @@ class _OverlayWidgetState extends State<OverlayWidget>
             Expanded(
               child: _messages.isEmpty
                   ? Center(
-                      child: Text(
-                        'Start a conversation',
-                        style: TextStyle(color: Colors.white.withOpacity(0.4)),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [electricNeonBlue, Color(0xFF0080FF)],
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(Icons.auto_awesome, color: Colors.white, size: 32),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Start a conversation',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.6),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Ask me anything!',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.4),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
                       ),
                     )
                   : ListView.builder(
@@ -558,7 +593,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
                     ),
             ),
 
-            // Typing
+            // Typing indicator
             if (_isSending)
               Padding(
                 padding: const EdgeInsets.only(left: 14, bottom: 4),
@@ -578,31 +613,21 @@ class _OverlayWidgetState extends State<OverlayWidget>
                 ),
               ),
 
-            // Input
+            // Input area (like WhatsApp)
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: const BoxDecoration(
                 color: Color(0xFF252525),
                 borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
               ),
               child: Row(
                 children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.mic, color: Colors.white70, size: 20),
-                  ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(24),
                       ),
                       child: TextField(
                         controller: _msgController,
@@ -614,6 +639,8 @@ class _OverlayWidgetState extends State<OverlayWidget>
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(vertical: 10),
                         ),
+                        maxLines: null,
+                        textInputAction: TextInputAction.send,
                         onSubmitted: (_) => _sendMessage(),
                       ),
                     ),
@@ -622,15 +649,15 @@ class _OverlayWidgetState extends State<OverlayWidget>
                   GestureDetector(
                     onTap: _sendMessage,
                     child: Container(
-                      width: 38,
-                      height: 38,
+                      width: 42,
+                      height: 42,
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
                           colors: [electricNeonBlue, Color(0xFF0080FF)],
                         ),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.send, color: Colors.white, size: 18),
+                      child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
                     ),
                   ),
                 ],
@@ -638,21 +665,6 @@ class _OverlayWidgetState extends State<OverlayWidget>
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _headerBtn(IconData icon, VoidCallback? onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: Colors.white70, size: 16),
       ),
     );
   }
