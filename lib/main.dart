@@ -52,6 +52,10 @@ class OverlayWidget extends StatefulWidget {
 
 class _OverlayWidgetState extends State<OverlayWidget>
     with TickerProviderStateMixin {
+  // API Configuration
+  static const String _baseUrl = 
+      "https://ai-keyboard-backend.vishwajeetadkine705.workers.dev";
+  
   // Menu state
   bool _isMenuOpen = false;
 
@@ -146,7 +150,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
       await Future.delayed(const Duration(seconds: 2));
 
       final resp = await http.post(
-        Uri.parse('https://ai-keyboard-backend.vishwajeetadkine705.workers.dev/security/scan-content'),
+        Uri.parse('$_baseUrl/security/scan-content'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'content': 'Screen content analysis request'}),
       ).timeout(
@@ -207,7 +211,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
 
     try {
       final resp = await http.post(
-        Uri.parse('https://ai-keyboard-backend.vishwajeetadkine705.workers.dev/chat/message'),
+        Uri.parse('$_baseUrl/chat/message'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'message': msg}),
       ).timeout(
