@@ -4,6 +4,7 @@ import 'package:stremniapp/routing/app_router.dart';
 import 'package:stremniapp/theme/app_theme.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 
 // Colors
 const Color electricNeonBlue = Color(0xFF00F0FF);
@@ -81,6 +82,12 @@ class _OverlayWidgetState extends State<OverlayWidget>
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat(reverse: true);
+    
+    // Add welcome message
+    _messages.add(_ChatMsg(
+      text: "Hello! I'm Stremini AI. How can I help you today?",
+      isUser: false,
+    ));
   }
 
   @override
@@ -135,13 +142,17 @@ class _OverlayWidgetState extends State<OverlayWidget>
 
   Future<void> _performScan() async {
     try {
+      // Show scanning animation for 2 seconds
       await Future.delayed(const Duration(seconds: 2));
 
       final resp = await http.post(
         Uri.parse('https://ai-keyboard-backend.vishwajeetadkine705.workers.dev/security/scan-content'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'content': 'Screen content analysis request'}),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw TimeoutException('Request timed out'),
+      );
 
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
@@ -164,13 +175,20 @@ class _OverlayWidgetState extends State<OverlayWidget>
           _scanSafetyLevel = level;
         });
       } else {
-        throw Exception('Server error');
+        throw Exception('Server error: ${resp.statusCode}');
       }
+    } on TimeoutException {
+      setState(() {
+        _isAnalyzing = false;
+        _showScanResults = true;
+        _scanResultText = 'Request timed out. Please check your connection.';
+        _scanSafetyLevel = 'warning';
+      });
     } catch (e) {
       setState(() {
         _isAnalyzing = false;
         _showScanResults = true;
-        _scanResultText = 'Error: Could not analyze screen';
+        _scanResultText = 'Error: Could not analyze screen\n${e.toString()}';
         _scanSafetyLevel = 'warning';
       });
     }
@@ -192,16 +210,29 @@ class _OverlayWidgetState extends State<OverlayWidget>
         Uri.parse('https://ai-keyboard-backend.vishwajeetadkine705.workers.dev/chat/message'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'message': msg}),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw TimeoutException('Request timed out'),
+      );
 
       String reply = 'Sorry, could not get response.';
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
         reply = data['response'] ?? data['text'] ?? data['message'] ?? reply;
+      } else {
+        reply = 'Server error: ${resp.statusCode}';
       }
       setState(() => _messages.add(_ChatMsg(text: reply, isUser: false)));
+    } on TimeoutException {
+      setState(() => _messages.add(_ChatMsg(
+        text: 'Request timed out. Please check your internet connection.',
+        isUser: false,
+      )));
     } catch (e) {
-      setState(() => _messages.add(_ChatMsg(text: 'Error: $e', isUser: false)));
+      setState(() => _messages.add(_ChatMsg(
+        text: 'Error: ${e.toString()}',
+        isUser: false,
+      )));
     } finally {
       setState(() => _isSending = false);
       _scrollToBottom();
@@ -502,9 +533,9 @@ class _OverlayWidgetState extends State<OverlayWidget>
             // Header with X button
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF252525),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              decoration: const BoxDecoration(
+                color: Color(0xFF252525),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Row(
                 children: [
@@ -530,7 +561,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
                       ),
                     ),
                   ),
-                  // X Close button (like WhatsApp)
+                  // X Close button
                   GestureDetector(
                     onTap: _closeChat,
                     child: Container(
@@ -574,14 +605,6 @@ class _OverlayWidgetState extends State<OverlayWidget>
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Ask me anything!',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.4),
-                              fontSize: 14,
-                            ),
-                          ),
                         ],
                       ),
                     )
@@ -598,7 +621,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
               Padding(
                 padding: const EdgeInsets.only(left: 14, bottom: 4),
                 child: Row(
-                  children: [
+                  children: const [
                     SizedBox(
                       width: 12,
                       height: 12,
@@ -607,13 +630,13 @@ class _OverlayWidgetState extends State<OverlayWidget>
                         color: electricNeonBlue,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Text('Typing...', style: TextStyle(color: Colors.white38, fontSize: 12)),
                   ],
                 ),
               ),
 
-            // Input area (like WhatsApp)
+            // Input area
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: const BoxDecoration(
