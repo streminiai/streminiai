@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:stremniapp/routing/app_router.dart';
 import 'package:stremniapp/theme/app_theme.dart';
+import 'package:stremniapp/services/screen_capture_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
@@ -56,6 +57,9 @@ class _OverlayWidgetState extends State<OverlayWidget>
   static const String _baseUrl = 
       "https://ai-keyboard-backend.vishwajeetadkine705.workers.dev";
   
+  // Services
+  final ScreenCaptureService _captureService = ScreenCaptureService();
+  
   // Menu state
   bool _isMenuOpen = false;
 
@@ -69,6 +73,8 @@ class _OverlayWidgetState extends State<OverlayWidget>
   bool _showScanResults = false;
   String _scanResultText = '';
   String _scanSafetyLevel = 'safe';
+  int _threatLevel = 0;
+  String _scanDetails = '';
 
   // Chat
   final TextEditingController _msgController = TextEditingController();
@@ -78,6 +84,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
 
   // Animation
   late AnimationController _pulseAnim;
+  late AnimationController _scanAnim;
 
   @override
   void initState() {
@@ -86,6 +93,11 @@ class _OverlayWidgetState extends State<OverlayWidget>
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat(reverse: true);
+    
+    _scanAnim = AnimationController(
+      duration: const Duration(milliseconds: 2000),
+      vsync: this,
+    );
     
     // Add welcome message
     _messages.add(_ChatMsg(
@@ -97,6 +109,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
   @override
   void dispose() {
     _pulseAnim.dispose();
+    _scanAnim.dispose();
     _msgController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -140,35 +153,69 @@ class _OverlayWidgetState extends State<OverlayWidget>
         _isAnalyzing = true;
         _isMenuOpen = false;
       });
-      await _performScan();
+      _scanAnim.forward(from: 0);
+      await _performScreenScan();
     }
   }
 
-  Future<void> _performScan() async {
+  Future<void> _performScreenScan() async {
     try {
-      // Show scanning animation for 2 seconds
-      await Future.delayed(const Duration(seconds: 2));
+      // Step 1: Capture screen
+      setState(() {
+        _scanResultText = 'Capturing screen...';
+      });
+      
+      await Future.delayed(const Duration(milliseconds: 800));
+      
+      final captureResult = await _captureService.captureScreenText();
+      
+      if (!captureResult.success) {
+        throw Exception(captureResult.error ?? 'Screen capture failed');
+      }
 
-      final resp = await http.post(
-        Uri.parse('$_baseUrl/security/scan-content'),
+      final extractedText = captureResult.text.trim();
+      
+      if (extractedText.isEmpty) {
+        setState(() {
+          _isAnalyzing = false;
+          _showScanResults = true;
+          _scanResultText = 'No text found on screen';
+          _scanSafetyLevel = 'safe';
+          _threatLevel = 0;
+          _scanDetails = 'Screen appears to have no readable content.';
+        });
+        return;
+      }
+
+      // Step 2: Analyze content
+      setState(() {
+        _scanResultText = 'Analyzing content...';
+      });
+
+      final response = await http.post(
+        Uri.parse('$_baseUrl/security/analyze-text'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'content': 'Screen content analysis request'}),
+        body: jsonEncode({'text': extractedText}),
       ).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw TimeoutException('Request timed out'),
+        const Duration(seconds: 20),
+        onTimeout: () => throw TimeoutException('Analysis timed out'),
       );
 
-      if (resp.statusCode == 200) {
-        final data = jsonDecode(resp.body);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        // Parse response
         final safety = (data['safety'] ?? 'Safe').toString();
         final reason = (data['reason'] ?? 'Analysis complete').toString();
+        final details = (data['details'] ?? '').toString();
+        final threatLevel = data['threatLevel'] ?? 0;
 
+        // Determine safety level
         String level = 'safe';
-        if (safety.toLowerCase().contains('scam') ||
-            safety.toLowerCase().contains('phishing')) {
+        if (safety.toLowerCase().contains('scam')) {
           level = 'scam';
-        } else if (safety.toLowerCase().contains('warning') ||
-            safety.toLowerCase().contains('suspicious')) {
+        } else if (safety.toLowerCase().contains('suspicious') || 
+                   safety.toLowerCase().contains('warning')) {
           level = 'warning';
         }
 
@@ -177,24 +224,30 @@ class _OverlayWidgetState extends State<OverlayWidget>
           _showScanResults = true;
           _scanResultText = '$safety\n$reason';
           _scanSafetyLevel = level;
+          _threatLevel = threatLevel is int ? threatLevel : 0;
+          _scanDetails = details;
         });
       } else {
-        throw Exception('Server error: ${resp.statusCode}');
+        throw Exception('Server error: ${response.statusCode}');
       }
     } on TimeoutException {
       setState(() {
         _isAnalyzing = false;
         _showScanResults = true;
-        _scanResultText = 'Request timed out. Please check your connection.';
+        _scanResultText = 'Analysis timed out\nPlease check your connection';
         _scanSafetyLevel = 'warning';
+        _threatLevel = 0;
       });
     } catch (e) {
       setState(() {
         _isAnalyzing = false;
         _showScanResults = true;
-        _scanResultText = 'Error: Could not analyze screen\n${e.toString()}';
+        _scanResultText = 'Scan Error\n${e.toString().replaceFirst("Exception: ", "")}';
         _scanSafetyLevel = 'warning';
+        _threatLevel = 0;
       });
+    } finally {
+      _scanAnim.reset();
     }
   }
 
@@ -264,7 +317,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
       child: Stack(
         children: [
           // Scan results overlay
-          if (_showScanResults && _isScamDetectorActive) _buildScanResultTag(),
+          if (_showScanResults && _isScamDetectorActive) _buildScanResultCard(),
 
           // Scanning animation
           if (_isAnalyzing) _buildScanningOverlay(),
@@ -345,7 +398,7 @@ class _OverlayWidgetState extends State<OverlayWidget>
                             ),
                           )
                         : Icon(
-                            _isMenuOpen ? Icons.close : Icons.auto_awesome,
+                            _isMenuOpen ? Icons.close : Icons.security,
                             color: Colors.white,
                             size: 26,
                           ),
@@ -425,12 +478,12 @@ class _OverlayWidgetState extends State<OverlayWidget>
     return Positioned.fill(
       child: IgnorePointer(
         child: AnimatedBuilder(
-          animation: _pulseAnim,
+          animation: _scanAnim,
           builder: (ctx, _) {
             return Container(
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: electricNeonBlue.withOpacity(0.3 + _pulseAnim.value * 0.3),
+                  color: electricNeonBlue.withOpacity(0.3 + _scanAnim.value * 0.4),
                   width: 3,
                 ),
               ),
@@ -454,9 +507,9 @@ class _OverlayWidgetState extends State<OverlayWidget>
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Text(
-                        'Scanning screen...',
-                        style: TextStyle(color: Colors.white, fontSize: 14),
+                      Text(
+                        _scanResultText.isEmpty ? 'Scanning screen...' : _scanResultText,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
                       ),
                     ],
                   ),
@@ -469,48 +522,131 @@ class _OverlayWidgetState extends State<OverlayWidget>
     );
   }
 
-  Widget _buildScanResultTag() {
+  Widget _buildScanResultCard() {
     Color c;
     IconData ic;
+    String title;
+    
     switch (_scanSafetyLevel) {
       case 'scam':
         c = const Color(0xFFEF4444);
-        ic = Icons.dangerous;
+        ic = Icons.dangerous_rounded;
+        title = '🚨 SCAM DETECTED';
         break;
       case 'warning':
         c = const Color(0xFFF59E0B);
-        ic = Icons.warning;
+        ic = Icons.warning_rounded;
+        title = '⚠️ SUSPICIOUS';
         break;
       default:
         c = const Color(0xFF10B981);
-        ic = Icons.check_circle;
+        ic = Icons.check_circle_rounded;
+        title = '✅ SAFE';
     }
 
     return Positioned(
       left: 16,
       right: 80,
-      top: 100,
+      top: 80,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: c.withOpacity(0.95),
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: c.withOpacity(0.4), blurRadius: 16)],
+          boxShadow: [
+            BoxShadow(
+              color: c.withOpacity(0.4), 
+              blurRadius: 20,
+              spreadRadius: 2,
+            )
+          ],
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(ic, color: Colors.white, size: 28),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                _scanResultText,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
+            Row(
+              children: [
+                Icon(ic, color: Colors.white, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => setState(() {
+                    _showScanResults = false;
+                    _isScamDetectorActive = false;
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.close, color: Colors.white, size: 20),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _scanResultText,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                height: 1.4,
               ),
             ),
-            GestureDetector(
-              onTap: () => setState(() => _showScanResults = false),
-              child: const Icon(Icons.close, color: Colors.white, size: 20),
-            ),
+            if (_threatLevel > 0) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Text(
+                    'Threat Level:',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: LinearProgressIndicator(
+                      value: _threatLevel / 100,
+                      backgroundColor: Colors.white.withOpacity(0.3),
+                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$_threatLevel%',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (_scanDetails.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                _scanDetails,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  height: 1.3,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ],
         ),
       ),
@@ -565,7 +701,6 @@ class _OverlayWidgetState extends State<OverlayWidget>
                       ),
                     ),
                   ),
-                  // X Close button
                   GestureDetector(
                     onTap: _closeChat,
                     child: Container(
@@ -584,40 +719,12 @@ class _OverlayWidgetState extends State<OverlayWidget>
 
             // Messages
             Expanded(
-              child: _messages.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [electricNeonBlue, Color(0xFF0080FF)],
-                              ),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: const Icon(Icons.auto_awesome, color: Colors.white, size: 32),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Start a conversation',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(12),
-                      itemCount: _messages.length,
-                      itemBuilder: (ctx, i) => _chatBubble(_messages[i]),
-                    ),
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(12),
+                itemCount: _messages.length,
+                itemBuilder: (ctx, i) => _chatBubble(_messages[i]),
+              ),
             ),
 
             // Typing indicator
