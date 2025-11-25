@@ -1,151 +1,274 @@
 package com.example.stremini_chatbot
 
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
-import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.ImageView
 import androidx.core.app.NotificationCompat
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.abs
 
-class ChatOverlayService : Service() {
+class ChatOverlayService : Service(), View.OnTouchListener {
+
     private lateinit var windowManager: WindowManager
-    private var bubbleView: View? = null
-    private lateinit var layoutParams: WindowManager.LayoutParams
+    private lateinit var overlayView: View
+    private lateinit var params: WindowManager.LayoutParams
+
+    private lateinit var bubbleIcon: ImageView
+    private lateinit var menuItems: List<ImageView> // Changed to simple list of Views
+    private var isMenuExpanded = false
+
+    // Drag Logic Variables
+    private var initialX = 0
+    private var initialY = 0
+    private var initialTouchX = 0f
+    private var initialTouchY = 0f
+    private var isDragging = false
+
+    // Configuration
+    private val bubbleSizeDp = 78f // Matches your Flutter size
+    private val menuItemSizeDp = 60f
+    private val radiusDp = 110f // Matches your Flutter radius
+
+    // Position storage
+    private var lastCollapsedX = 0
+    private var lastCollapsedY = 200
+
+    private fun dpToPx(dp: Float): Int {
+        return (dp * resources.displayMetrics.density).toInt()
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        startForegroundWithNotification()
-        showBubble()
+        startForegroundService()
+        setupOverlay()
+    }
+
+    private fun setupOverlay() {
+        overlayView = LayoutInflater.from(this).inflate(R.layout.chat_bubble_layout, null)
+        bubbleIcon = overlayView.findViewById(R.id.bubble_icon)
+        
+        // Get references to menu items (Order matters: Top to Bottom visually)
+        menuItems = listOf(
+            overlayView.findViewById(R.id.btn_refresh),
+            overlayView.findViewById(R.id.btn_settings),
+            overlayView.findViewById(R.id.btn_ai),
+            overlayView.findViewById(R.id.btn_keyboard),
+            overlayView.findViewById(R.id.btn_security)
+        )
+
+        val typeParam = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        } else {
+            @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+        }
+
+        params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            typeParam,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or 
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        )
+        params.gravity = Gravity.TOP or Gravity.START
+        params.x = lastCollapsedX
+        params.y = lastCollapsedY
+
+        bubbleIcon.setOnTouchListener(this)
+        
+        menuItems.forEach { view ->
+            view.setOnClickListener {
+                openMainApp()
+            }
+        }
+
+        windowManager.addView(overlayView, params)
+    }
+
+    override fun onTouch(v: View, event: MotionEvent): Boolean {
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                initialX = params.x
+                initialY = params.y
+                initialTouchX = event.rawX
+                initialTouchY = event.rawY
+                isDragging = false
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val dx = (event.rawX - initialTouchX).toInt()
+                val dy = (event.rawY - initialTouchY).toInt()
+
+                if (abs(dx) > 10 || abs(dy) > 10) {
+                    isDragging = true
+                    if (isMenuExpanded) collapseMenu() 
+                }
+                
+                if (!isMenuExpanded) {
+                    params.x = initialX + dx
+                    params.y = initialY + dy
+                    lastCollapsedX = params.x
+                    lastCollapsedY = params.y
+                    windowManager.updateViewLayout(overlayView, params)
+                }
+                return true
+            }
+            MotionEvent.ACTION_UP -> {
+                if (!isDragging) {
+                    toggleMenu() 
+                } else {
+                    snapToEdge()
+                }
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun toggleMenu() {
+        if (isMenuExpanded) collapseMenu() else expandMenu()
+    }
+
+    private fun expandMenu() {
+        isMenuExpanded = true
+        
+        val radiusPx = dpToPx(radiusDp).toFloat()
+        val bubbleSizePx = dpToPx(bubbleSizeDp).toFloat()
+        val menuItemSizePx = dpToPx(menuItemSizeDp).toFloat()
+
+        // 1. Resize Window to allow expansion
+        val expandedWindowSizePx = (radiusPx * 2) + bubbleSizePx + menuItemSizePx
+        val offsetPx = (expandedWindowSizePx / 2) - (bubbleSizePx / 2)
+
+        val currentX = params.x
+        val currentY = params.y
+
+        params.width = expandedWindowSizePx.toInt()
+        params.height = expandedWindowSizePx.toInt()
+        
+        // Center the new large window over the bubble
+        params.x = currentX - offsetPx.toInt()
+        params.y = currentY - offsetPx.toInt()
+        
+        windowManager.updateViewLayout(overlayView, params)
+
+        // 2. Determine Side and Angles
+        val screenWidth = resources.displayMetrics.widthPixels
+        // Calculate where the bubble center is relative to screen
+        val bubbleCenterX = lastCollapsedX + (bubbleSizePx / 2)
+        val isOnRightSide = bubbleCenterX > (screenWidth / 2)
+        
+ double startAngle = isOnRightSide ? 90.0 : 90.0;
+    double endAngle = isOnRightSide ? 270.0 : -90.0;
+
+        val step = (endAngle - startAngle) / (menuItems.size - 1)
+
+        // 3. Animate Items
+        for ((index, view) in menuItems.withIndex()) {
+            view.visibility = View.VISIBLE
+            view.alpha = 0f
+            
+            val angle = startAngle + (index * step)
+            val rad = Math.toRadians(angle)
+            
+            // Android Y is Down, so -sin(rad) moves Up
+            val targetX = (radiusPx * cos(rad)).toFloat()
+            val targetY = (radiusPx * -sin(rad)).toFloat()
+
+            view.animate()
+                .translationX(targetX)
+                .translationY(targetY)
+                .alpha(1f)
+                .setDuration(300)
+                .start()
+        }
+    }
+
+    private fun collapseMenu() {
+        isMenuExpanded = false
+
+        for (view in menuItems) {
+            view.animate()
+                .translationX(0f)
+                .translationY(0f)
+                .alpha(0f)
+                .setDuration(300)
+                .withEndAction { view.visibility = View.GONE }
+                .start()
+        }
+        
+        overlayView.postDelayed({
+            params.width = WindowManager.LayoutParams.WRAP_CONTENT
+            params.height = WindowManager.LayoutParams.WRAP_CONTENT
+            
+            params.x = lastCollapsedX
+            params.y = lastCollapsedY
+            
+            if (::overlayView.isInitialized) {
+                windowManager.updateViewLayout(overlayView, params)
+            }
+        }, 300)
+    }
+
+    private fun snapToEdge() {
+        val bubbleSizePx = dpToPx(bubbleSizeDp).toFloat()
+        val screenWidth = resources.displayMetrics.widthPixels
+        
+        val currentCenterX = params.x + (bubbleSizePx / 2) 
+        val middle = screenWidth / 2
+        
+        // Snap Logic
+        val targetX = if (currentCenterX > middle) {
+            screenWidth - bubbleSizePx.toInt() 
+        } else {
+            0
+        }
+        
+        params.x = targetX
+        lastCollapsedX = targetX 
+        windowManager.updateViewLayout(overlayView, params)
+    }
+
+    private fun openMainApp() {
+        val intent = Intent(this, MainActivity::class.java)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or 
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP or 
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        startActivity(intent)
+        stopSelf()
+    }
+
+    private fun startForegroundService() {
+        val channelId = "chat_head_service"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(channelId, "Chat Overlay", NotificationManager.IMPORTANCE_LOW)
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        }
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setContentTitle("Stremini Chat")
+            .setContentText("Active")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .build()
+        startForeground(1, notification)
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        if (bubbleView != null) {
-            windowManager.removeView(bubbleView)
-            bubbleView = null
-        }
-    }
-
-    private fun startForegroundWithNotification() {
-        val channelId = "stremini_overlay_channel"
-        val channelName = "Stremini Overlay"
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_MIN)
-            nm.createNotificationChannel(channel)
-        }
-
-        val intent = Intent(this, MainActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val notification: Notification = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Stremini Chat")
-            .setContentText("Tap to return to chat")
-            .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_MIN)
-            .setContentIntent(pendingIntent)
-            .build()
-
-        startForeground(1001, notification)
-    }
-
-    private fun showBubble() {
-        if (bubbleView != null) return
-
-        val size = (60 * resources.displayMetrics.density).toInt()
-        val imageView = ImageView(this)
-
-        val bg = GradientDrawable()
-        bg.shape = GradientDrawable.OVAL
-        bg.setColor(0xFF3F51B5.toInt())
-        imageView.background = bg
-        imageView.setImageResource(android.R.drawable.ic_dialog_email)
-        imageView.setColorFilter(0xFFFFFFFF.toInt())
-        imageView.scaleType = ImageView.ScaleType.CENTER
-
-        layoutParams = WindowManager.LayoutParams(
-            size,
-            size,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        )
-        layoutParams.gravity = Gravity.TOP or Gravity.START
-        layoutParams.x = resources.displayMetrics.widthPixels - size - 40
-        layoutParams.y = (resources.displayMetrics.heightPixels * 0.6).toInt()
-
-        imageView.setOnTouchListener(object : View.OnTouchListener {
-            private var initialX = 0
-            private var initialY = 0
-            private var initialTouchX = 0f
-            private var initialTouchY = 0f
-            private var isClick = false
-
-            override fun onTouch(v: View?, event: MotionEvent): Boolean {
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        isClick = true
-                        initialX = layoutParams.x
-                        initialY = layoutParams.y
-                        initialTouchX = event.rawX
-                        initialTouchY = event.rawY
-                        return true
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        val dx = (event.rawX - initialTouchX).toInt()
-                        val dy = (event.rawY - initialTouchY).toInt()
-                        layoutParams.x = initialX + dx
-                        layoutParams.y = initialY + dy
-                        windowManager.updateViewLayout(imageView, layoutParams)
-                        isClick = false
-                        return true
-                    }
-                    MotionEvent.ACTION_UP -> {
-                        if (isClick) {
-                            // Bring app to front and close overlay
-                            val intent = Intent(this@ChatOverlayService, MainActivity::class.java)
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                            startActivity(intent)
-                            stopSelf()
-                        }
-                        return true
-                    }
-                }
-                return false
-            }
-        })
-
-        bubbleView = imageView
-        try {
-            windowManager.addView(imageView, layoutParams)
-        } catch (e: Exception) {
-            // Likely missing overlay permission
-            stopSelf()
-        }
+        if (::overlayView.isInitialized) windowManager.removeView(overlayView)
     }
 }
-
-

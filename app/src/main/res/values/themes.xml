@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launch Theme - shown during app startup -->
+    <style name="LaunchTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/black</item>
+        <item name="android:navigationBarColor">@android:color/black</item>
+    </style>
+
+    <!-- Normal Theme - applied after Flutter loads -->
+    <style name="NormalTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/black</item>
+    </style>
+
+    <!-- Base Theme (for backwards compat) -->
+    <style name="Theme.Stremniapp" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#FF0A84FF</item>
+        <item name="colorPrimaryVariant">#FF0066CC</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorSecondary">#FF00F0FF</item>
+        <item name="colorOnSecondary">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/black</item>
+    </style>
+</resources>

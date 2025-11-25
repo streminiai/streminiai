@@ -24,8 +24,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # assets:
-  #     - assets/logo.jpg
-  #     - assets/home_icon.png
-  #     - assets/question_mark_icon.png
-  #     - assets/settings_icon.png
+  assets:
+    - assets/logo.jpg
+    - assets/home_icon.png
+    - assets/question_mark_icon.png
+    - assets/settings_icon.png

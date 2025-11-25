@@ -1,0 +1,25 @@
+workflows:
+  android-release:
+    name: Android Release
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Get Flutter packages
+        script: | 
+          flutter pub get
+      - name: Build APK
+        script: | 
+          flutter build apk --release
+    artifacts:
+      - build/**/outputs/**/*.apk
+      - build/**/outputs/**/*.aab
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: false
