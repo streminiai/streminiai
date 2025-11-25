@@ -67,14 +67,15 @@ class _OverlayWidgetState extends State<OverlayWidget>
   bool _isChatbotActive = false;
   bool _isScamDetectorActive = false;
 
-  // UI states
+  // Chat window states
   bool _isChatOpen = false;
+  bool _isChatFullscreen = false;
+  Offset _chatPosition = const Offset(12, 200);
+  bool _isDraggingChat = false;
+
+  // UI states
   bool _isAnalyzing = false;
-  bool _showScanResults = false;
-  String _scanResultText = '';
-  String _scanSafetyLevel = 'safe';
-  int _threatLevel = 0;
-  String _scanDetails = '';
+  List<ContentTag> _contentTags = [];
 
   // Chat
   final TextEditingController _msgController = TextEditingController();
@@ -119,9 +120,11 @@ class _OverlayWidgetState extends State<OverlayWidget>
   void _toggleChatbot() {
     setState(() {
       if (_isChatbotActive) {
+        // Deactivate - close chat and turn icon gray
         _isChatbotActive = false;
         _isChatOpen = false;
       } else {
+        // Activate - open chat and turn icon blue
         _isChatbotActive = true;
         _isChatOpen = true;
       }
@@ -129,25 +132,32 @@ class _OverlayWidgetState extends State<OverlayWidget>
     });
   }
 
-  // Close chat via X button
+  // Close chat via X button - also deactivates feature
   void _closeChat() {
     setState(() {
       _isChatOpen = false;
-      _isChatbotActive = false;
+      _isChatbotActive = false; // Turn icon back to gray
+    });
+  }
+
+  // Toggle fullscreen
+  void _toggleFullscreen() {
+    setState(() {
+      _isChatFullscreen = !_isChatFullscreen;
     });
   }
 
   // Toggle scam detector - blue when active
   void _toggleScamDetector() async {
     if (_isScamDetectorActive) {
-      // Deactivate
+      // Deactivate - remove tags and turn icon gray
       setState(() {
         _isScamDetectorActive = false;
-        _showScanResults = false;
+        _contentTags.clear();
         _isMenuOpen = false;
       });
     } else {
-      // Activate and scan
+      // Activate - scan screen and show tags
       setState(() {
         _isScamDetectorActive = true;
         _isAnalyzing = true;
@@ -161,10 +171,6 @@ class _OverlayWidgetState extends State<OverlayWidget>
   Future<void> _performScreenScan() async {
     try {
       // Step 1: Capture screen
-      setState(() {
-        _scanResultText = 'Capturing screen...';
-      });
-      
       await Future.delayed(const Duration(milliseconds: 800));
       
       final captureResult = await _captureService.captureScreenText();
@@ -178,20 +184,11 @@ class _OverlayWidgetState extends State<OverlayWidget>
       if (extractedText.isEmpty) {
         setState(() {
           _isAnalyzing = false;
-          _showScanResults = true;
-          _scanResultText = 'No text found on screen';
-          _scanSafetyLevel = 'safe';
-          _threatLevel = 0;
-          _scanDetails = 'Screen appears to have no readable content.';
         });
         return;
       }
 
       // Step 2: Analyze content
-      setState(() {
-        _scanResultText = 'Analyzing content...';
-      });
-
       final response = await http.post(
         Uri.parse('$_baseUrl/security/analyze-text'),
         headers: {'Content-Type': 'application/json'},
@@ -206,26 +203,43 @@ class _OverlayWidgetState extends State<OverlayWidget>
         
         // Parse response
         final safety = (data['safety'] ?? 'Safe').toString();
-        final reason = (data['reason'] ?? 'Analysis complete').toString();
-        final details = (data['details'] ?? '').toString();
-        final threatLevel = data['threatLevel'] ?? 0;
-
-        // Determine safety level
-        String level = 'safe';
+        final reason = (data['reason'] ?? '').toString();
+        
+        // Generate tags based on analysis
+        List<ContentTag> tags = [];
+        
         if (safety.toLowerCase().contains('scam')) {
-          level = 'scam';
-        } else if (safety.toLowerCase().contains('suspicious') || 
-                   safety.toLowerCase().contains('warning')) {
-          level = 'warning';
+          tags.add(ContentTag(
+            label: '🚨 SCAM',
+            color: const Color(0xFFEF4444),
+            position: const Offset(100, 150),
+          ));
+        } else if (safety.toLowerCase().contains('suspicious')) {
+          tags.add(ContentTag(
+            label: '⚠️ SUSPICIOUS',
+            color: const Color(0xFFF59E0B),
+            position: const Offset(100, 150),
+          ));
+        } else {
+          tags.add(ContentTag(
+            label: '✅ SAFE',
+            color: const Color(0xFF10B981),
+            position: const Offset(100, 150),
+          ));
+        }
+        
+        // Add emotion/tone tags if available
+        if (reason.toLowerCase().contains('urgent')) {
+          tags.add(ContentTag(
+            label: 'Urgent Tone',
+            color: const Color(0xFFF59E0B),
+            position: const Offset(100, 220),
+          ));
         }
 
         setState(() {
           _isAnalyzing = false;
-          _showScanResults = true;
-          _scanResultText = '$safety\n$reason';
-          _scanSafetyLevel = level;
-          _threatLevel = threatLevel is int ? threatLevel : 0;
-          _scanDetails = details;
+          _contentTags = tags;
         });
       } else {
         throw Exception('Server error: ${response.statusCode}');
@@ -233,18 +247,10 @@ class _OverlayWidgetState extends State<OverlayWidget>
     } on TimeoutException {
       setState(() {
         _isAnalyzing = false;
-        _showScanResults = true;
-        _scanResultText = 'Analysis timed out\nPlease check your connection';
-        _scanSafetyLevel = 'warning';
-        _threatLevel = 0;
       });
     } catch (e) {
       setState(() {
         _isAnalyzing = false;
-        _showScanResults = true;
-        _scanResultText = 'Scan Error\n${e.toString().replaceFirst("Exception: ", "")}';
-        _scanSafetyLevel = 'warning';
-        _threatLevel = 0;
       });
     } finally {
       _scanAnim.reset();
@@ -316,8 +322,9 @@ class _OverlayWidgetState extends State<OverlayWidget>
       color: Colors.transparent,
       child: Stack(
         children: [
-          // Scan results overlay
-          if (_showScanResults && _isScamDetectorActive) _buildScanResultCard(),
+          // Content tags overlay (for scam detector)
+          if (_contentTags.isNotEmpty && _isScamDetectorActive)
+            ..._contentTags.map((tag) => _buildContentTag(tag)),
 
           // Scanning animation
           if (_isAnalyzing) _buildScanningOverlay(),
@@ -507,9 +514,9 @@ class _OverlayWidgetState extends State<OverlayWidget>
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Text(
-                        _scanResultText.isEmpty ? 'Scanning screen...' : _scanResultText,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                      const Text(
+                        'Scanning screen...',
+                        style: TextStyle(color: Colors.white, fontSize: 14),
                       ),
                     ],
                   ),
@@ -522,283 +529,277 @@ class _OverlayWidgetState extends State<OverlayWidget>
     );
   }
 
-  Widget _buildScanResultCard() {
-    Color c;
-    IconData ic;
-    String title;
-    
-    switch (_scanSafetyLevel) {
-      case 'scam':
-        c = const Color(0xFFEF4444);
-        ic = Icons.dangerous_rounded;
-        title = '🚨 SCAM DETECTED';
-        break;
-      case 'warning':
-        c = const Color(0xFFF59E0B);
-        ic = Icons.warning_rounded;
-        title = '⚠️ SUSPICIOUS';
-        break;
-      default:
-        c = const Color(0xFF10B981);
-        ic = Icons.check_circle_rounded;
-        title = '✅ SAFE';
-    }
-
+  Widget _buildContentTag(ContentTag tag) {
     return Positioned(
-      left: 16,
-      right: 80,
-      top: 80,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: c.withOpacity(0.95),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: c.withOpacity(0.4), 
-              blurRadius: 20,
-              spreadRadius: 2,
-            )
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(ic, color: Colors.white, size: 28),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => setState(() {
-                    _showScanResults = false;
-                    _isScamDetectorActive = false;
-                  }),
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.close, color: Colors.white, size: 20),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _scanResultText,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                height: 1.4,
-              ),
-            ),
-            if (_threatLevel > 0) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Text(
-                    'Threat Level:',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: LinearProgressIndicator(
-                      value: _threatLevel / 100,
-                      backgroundColor: Colors.white.withOpacity(0.3),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$_threatLevel%',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+      left: tag.position.dx,
+      top: tag.position.dy,
+      child: GestureDetector(
+        onTap: () {
+          // Remove tag on tap
+          setState(() {
+            _contentTags.remove(tag);
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: tag.color.withOpacity(0.95),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: tag.color.withOpacity(0.4),
+                blurRadius: 8,
+                spreadRadius: 1,
               ),
             ],
-            if (_scanDetails.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                _scanDetails,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  height: 1.3,
-                ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ],
+          ),
+          child: Text(
+            tag.label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
       ),
     );
   }
 
   Widget _buildChatWindow() {
-    return Positioned(
-      left: 12,
-      right: 12,
-      bottom: 90,
-      child: Container(
-        height: 400,
-        decoration: BoxDecoration(
+    final screenSize = MediaQuery.of(context).size;
+    
+    if (_isChatFullscreen) {
+      return Positioned.fill(
+        child: Container(
           color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: electricNeonBlue.withOpacity(0.3)),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20),
-          ],
+          child: Column(
+            children: [
+              _buildChatHeader(),
+              Expanded(child: _buildMessagesList()),
+              if (_isSending) _buildTypingIndicator(),
+              _buildInputArea(),
+            ],
+          ),
         ),
-        child: Column(
-          children: [
-            // Header with X button
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: const BoxDecoration(
-                color: Color(0xFF252525),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      );
+    }
+
+    return Positioned(
+      left: _chatPosition.dx,
+      top: _chatPosition.dy,
+      child: GestureDetector(
+        onPanStart: (_) => setState(() => _isDraggingChat = true),
+        onPanUpdate: (details) {
+          setState(() {
+            _chatPosition = Offset(
+              (_chatPosition.dx + details.delta.dx).clamp(0.0, screenSize.width - 350),
+              (_chatPosition.dy + details.delta.dy).clamp(0.0, screenSize.height - 400),
+            );
+          });
+        },
+        onPanEnd: (_) => setState(() => _isDraggingChat = false),
+        child: Container(
+          width: 350,
+          height: 400,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: electricNeonBlue.withOpacity(0.3)),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20),
+            ],
+          ),
+          child: Column(
+            children: [
+              _buildChatHeader(),
+              Expanded(child: _buildMessagesList()),
+              if (_isSending) _buildTypingIndicator(),
+              _buildInputArea(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Color(0xFF252525),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [electricNeonBlue, Color(0xFF0080FF)],
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [electricNeonBlue, Color(0xFF0080FF)],
-                      ),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
-                  ),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text(
-                      'Stremini AI',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: _closeChat,
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.close, color: Colors.white70, size: 20),
-                    ),
-                  ),
-                ],
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Stremini AI',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
               ),
             ),
-
-            // Messages
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(12),
-                itemCount: _messages.length,
-                itemBuilder: (ctx, i) => _chatBubble(_messages[i]),
+          ),
+          // Move button
+          GestureDetector(
+            onTap: () {},
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.open_with, color: Colors.white70, size: 18),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Fullscreen button
+          GestureDetector(
+            onTap: _toggleFullscreen,
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                _isChatFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                color: Colors.white70,
+                size: 20,
               ),
             ),
+          ),
+          const SizedBox(width: 8),
+          // Close button
+          GestureDetector(
+            onTap: _closeChat,
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.close, color: Colors.white70, size: 20),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-            // Typing indicator
-            if (_isSending)
-              Padding(
-                padding: const EdgeInsets.only(left: 14, bottom: 4),
-                child: Row(
-                  children: const [
-                    SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: electricNeonBlue,
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    Text('Typing...', style: TextStyle(color: Colors.white38, fontSize: 12)),
-                  ],
+  Widget _buildMessagesList() {
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.all(12),
+      itemCount: _messages.length,
+      itemBuilder: (ctx, i) => _chatBubble(_messages[i]),
+    );
+  }
+
+  Widget _buildTypingIndicator() {
+    return Padding(
+      padding: const EdgeInsets.only(left: 14, bottom: 4),
+      child: Row(
+        children: const [
+          SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: electricNeonBlue,
+            ),
+          ),
+          SizedBox(width: 8),
+          Text('Typing...', style: TextStyle(color: Colors.white38, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputArea() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Color(0xFF252525),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+      ),
+      child: Row(
+        children: [
+          // Mic button
+          GestureDetector(
+            onTap: () {
+              // TODO: Implement voice input
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Voice input coming soon')),
+              );
+            },
+            child: Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.mic, color: Colors.white70, size: 20),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: TextField(
+                controller: _msgController,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'Type a message...',
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 ),
-              ),
-
-            // Input area
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: const BoxDecoration(
-                color: Color(0xFF252525),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: TextField(
-                        controller: _msgController,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: 'Type a message...',
-                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                        maxLines: null,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _sendMessage(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: _sendMessage,
-                    child: Container(
-                      width: 42,
-                      height: 42,
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [electricNeonBlue, Color(0xFF0080FF)],
-                        ),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                    ),
-                  ),
-                ],
+                maxLines: null,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _sendMessage(),
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: _sendMessage,
+            child: Container(
+              width: 42,
+              height: 42,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [electricNeonBlue, Color(0xFF0080FF)],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -851,4 +852,16 @@ class _ChatMsg {
   final String text;
   final bool isUser;
   _ChatMsg({required this.text, required this.isUser});
+}
+
+class ContentTag {
+  final String label;
+  final Color color;
+  final Offset position;
+
+  ContentTag({
+    required this.label,
+    required this.color,
+    required this.position,
+  });
 }
