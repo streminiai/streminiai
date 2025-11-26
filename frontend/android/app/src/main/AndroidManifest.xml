@@ -4,9 +4,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE"
-        android:label="Screen Scanner"
-        tools:ignore="ProtectedPermissions" />
+   
 
     <application
         android:label="stremini_chatbot"
@@ -41,9 +39,9 @@
             android:foregroundServiceType="dataSync"
             android:launchMode="singleInstance" />
 
-        <!-- Screen Scanner Accessibility Service -->
+        <!-- Screen Reader Accessibility Service (NEW) -->
         <service
-            android:name=".ScreenScannerService"
+            android:name=".ScreenReaderService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="true">
             <intent-filter>
