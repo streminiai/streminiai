@@ -16,22 +16,25 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   static const MethodChannel _overlayChannel = MethodChannel('stremini.chat.overlay');
   bool _hasOverlayPermission = false;
+  bool _hasAccessibilityPermission = false;
   bool _checkingPermission = false;
 
   @override
   void initState() {
     super.initState();
-    _checkOverlayPermission();
+    _checkPermissions();
   }
 
-  Future<void> _checkOverlayPermission() async {
+  Future<void> _checkPermissions() async {
     if (!Platform.isAndroid) return;
     
     setState(() => _checkingPermission = true);
     try {
-      final bool? has = await _overlayChannel.invokeMethod<bool>('hasOverlayPermission');
+      final bool? hasOverlay = await _overlayChannel.invokeMethod<bool>('hasOverlayPermission');
+      final bool? hasAccessibility = await _overlayChannel.invokeMethod<bool>('hasAccessibilityPermission');
       setState(() {
-        _hasOverlayPermission = has ?? false;
+        _hasOverlayPermission = hasOverlay ?? false;
+        _hasAccessibilityPermission = hasAccessibility ?? false;
         _checkingPermission = false;
       });
     } catch (e) {
@@ -44,9 +47,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     
     try {
       await _overlayChannel.invokeMethod('requestOverlayPermission');
-      // Wait a bit and check again
       await Future.delayed(const Duration(seconds: 1));
-      await _checkOverlayPermission();
+      await _checkPermissions();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
+  Future<void> _requestAccessibilityPermission() async {
+    if (!Platform.isAndroid) return;
+    
+    try {
+      await _overlayChannel.invokeMethod('requestAccessibilityPermission');
+      await Future.delayed(const Duration(seconds: 1));
+      await _checkPermissions();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
@@ -77,7 +93,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final bubbleActive = ref.watch(bubbleActiveProvider);
-    final scannerState = ref.watch(scannerStateProvider);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -142,7 +157,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Your intelligent assistant for chat, security, and screen analysis',
+                    'Your intelligent assistant for chat and security',
                     style: TextStyle(
                       color: Colors.grey[400],
                       fontSize: 14,
@@ -165,45 +180,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onChanged: _toggleBubble,
                 activeColor: const Color(0xFF23A6E2),
               ),
+              badge: _hasOverlayPermission 
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Ready',
+                        style: TextStyle(color: Colors.green, fontSize: 12),
+                      ),
+                    )
+                  : null,
               onTap: () {
                 if (!_hasOverlayPermission) {
                   _requestOverlayPermission();
                 }
               },
-            ),
-
-            const SizedBox(height: 16),
-
-            // Screen Scanner Control
-            _buildFeatureCard(
-              title: 'Screen Scanner',
-              description: 'Detect scams and analyze content',
-              icon: Icons.security,
-              iconColor: const Color(0xFFAA75F4),
-              trailing: Switch(
-                value: scannerState.isActive,
-                onChanged: (value) async {
-                  if (!scannerState.hasPermission) {
-                    await ref.read(scannerStateProvider.notifier).requestPermission();
-                  } else {
-                    await ref.read(scannerStateProvider.notifier).toggleScanning();
-                  }
-                },
-                activeColor: const Color(0xFFAA75F4),
-              ),
-              badge: !scannerState.hasPermission
-                  ? Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.orange,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'Permission Required',
-                        style: TextStyle(color: Colors.white, fontSize: 10),
-                      ),
-                    )
-                  : null,
             ),
 
             const SizedBox(height: 32),
@@ -225,20 +219,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               description: 'Intelligent conversation',
               icon: Icons.chat,
               color: const Color(0xFF23A6E2),
-              onTap: () {
-                // Navigate to chat screen
-              },
+              onTap: () {},
             ),
 
             const SizedBox(height: 12),
 
             _buildSmallFeatureCard(
-              title: 'Text Analysis',
-              description: 'Analyze tone & emotion',
-              icon: Icons.analytics,
-              color: const Color(0xFFAA75F4),
+              title: 'Screen Scanner',
+              description: 'Detect scams & fraud',
+              icon: Icons.scanner,
+              color: const Color(0xFFE040FB),
+              badge: _hasAccessibilityPermission 
+                  ? const Icon(Icons.check_circle, color: Colors.green, size: 20)
+                  : const Icon(Icons.warning, color: Colors.orange, size: 20),
               onTap: () {
-                // Open text analysis
+                if (!_hasAccessibilityPermission) {
+                  _showAccessibilityDialog();
+                }
               },
             ),
 
@@ -249,61 +246,112 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               description: 'Control with your voice',
               icon: Icons.mic,
               color: const Color(0xFF0066FF),
-              onTap: () {
-                // Open voice commands
-              },
+              onTap: () {},
             ),
 
             const SizedBox(height: 32),
 
-            // Status Info
+            // Permissions Status
             if (_checkingPermission)
               const Center(
                 child: CircularProgressIndicator(color: Colors.blue),
               )
-            else if (!_hasOverlayPermission && Platform.isAndroid)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            else ...[
+              if (!_hasOverlayPermission && Platform.isAndroid)
+                _buildPermissionCard(
+                  'Overlay Permission Required',
+                  'Enable to use floating bubble',
+                  Colors.orange,
+                  _requestOverlayPermission,
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning, color: Colors.orange),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Overlay Permission Required',
-                            style: TextStyle(
-                              color: Colors.orange,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Enable to use floating bubble',
-                            style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _requestOverlayPermission,
-                      child: const Text('Enable'),
-                    ),
-                  ],
+              if (!_hasAccessibilityPermission && Platform.isAndroid)
+                _buildPermissionCard(
+                  'Accessibility Permission Required',
+                  'Enable to use screen scanner feature',
+                  Colors.purple,
+                  _requestAccessibilityPermission,
                 ),
-              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  void _showAccessibilityDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: const Text(
+          'Accessibility Permission',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Screen Scanner requires Accessibility permission to read screen content and detect scams/fraud.\n\n'
+          'This permission is used only when you activate the scanner feature.',
+          style: TextStyle(color: Colors.grey),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _requestAccessibilityPermission();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple,
+            ),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPermissionCard(String title, String description, Color color, VoidCallback onTap) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning, color: color),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: onTap,
+            child: const Text('Enable'),
+          ),
+        ],
       ),
     );
   }
@@ -382,6 +430,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required String description,
     required IconData icon,
     required Color color,
+    Widget? badge,
     VoidCallback? onTap,
   }) {
     return InkWell(
@@ -428,7 +477,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios, color: Colors.grey[600], size: 16),
+            if (badge != null) badge else
+              Icon(Icons.arrow_forward_ios, color: Colors.grey[600], size: 16),
           ],
         ),
       ),
