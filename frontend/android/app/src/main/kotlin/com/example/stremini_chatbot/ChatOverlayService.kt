@@ -3,8 +3,10 @@ package com.example.stremini_chatbot
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
@@ -20,6 +22,13 @@ import kotlin.math.sin
 import kotlin.math.abs
 
 class ChatOverlayService : Service(), View.OnTouchListener {
+
+    companion object {
+        const val ACTION_OPEN_FLOATING_CHAT = "com.example.stremini_chatbot.OPEN_FLOATING_CHAT"
+        const val ACTION_CLOSE_FLOATING_CHAT = "com.example.stremini_chatbot.CLOSE_FLOATING_CHAT"
+        const val ACTION_OPEN_SCANNER = "com.example.stremini_chatbot.OPEN_SCANNER"
+        const val ACTION_CLOSE_SCANNER = "com.example.stremini_chatbot.CLOSE_SCANNER"
+    }
 
     private lateinit var windowManager: WindowManager
     private lateinit var overlayView: View
@@ -48,6 +57,26 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private var lastCollapsedX = 0
     private var lastCollapsedY = 200
 
+    // Broadcast receiver for floating chat and scanner controls
+    private val controlReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                ACTION_OPEN_FLOATING_CHAT -> {
+                    // Notify Flutter to show floating chat
+                }
+                ACTION_CLOSE_FLOATING_CHAT -> {
+                    // Notify Flutter to hide floating chat
+                }
+                ACTION_OPEN_SCANNER -> {
+                    // Notify Flutter to show scanner
+                }
+                ACTION_CLOSE_SCANNER -> {
+                    // Notify Flutter to hide scanner
+                }
+            }
+        }
+    }
+
     private fun dpToPx(dp: Float): Int {
         return (dp * resources.displayMetrics.density).toInt()
     }
@@ -59,19 +88,32 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         startForegroundService()
         setupOverlay()
+        
+        // Register broadcast receiver
+        val filter = IntentFilter().apply {
+            addAction(ACTION_OPEN_FLOATING_CHAT)
+            addAction(ACTION_CLOSE_FLOATING_CHAT)
+            addAction(ACTION_OPEN_SCANNER)
+            addAction(ACTION_CLOSE_SCANNER)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(controlReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(controlReceiver, filter)
+        }
     }
 
     private fun setupOverlay() {
         overlayView = LayoutInflater.from(this).inflate(R.layout.chat_bubble_layout, null)
         bubbleIcon = overlayView.findViewById(R.id.bubble_icon)
         
-        // Get references to menu items
+        // Get references to menu items (including new scanner button)
         menuItems = listOf(
             overlayView.findViewById(R.id.btn_refresh),
             overlayView.findViewById(R.id.btn_settings),
             overlayView.findViewById(R.id.btn_ai),
-            overlayView.findViewById(R.id.btn_keyboard),
-            overlayView.findViewById(R.id.btn_security)
+            overlayView.findViewById(R.id.btn_scanner),  // NEW
+            overlayView.findViewById(R.id.btn_keyboard)
         )
 
         val typeParam = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -96,10 +138,10 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         
         // Set click listeners for menu items
         menuItems[2].setOnClickListener { handleAIChat() }       // AI Chat
-        menuItems[4].setOnClickListener { handleScreenScanner() } // Scanner
-        menuItems[3].setOnClickListener { handleVoiceCommand() }  // Voice
-        menuItems[1].setOnClickListener { handleSettings() }      // Settings
-        menuItems[0].setOnClickListener { handleRefresh() }       // Refresh
+        menuItems[3].setOnClickListener { handleScanner() }      // Scanner (NEW)
+        menuItems[4].setOnClickListener { handleVoiceCommand() } // Voice
+        menuItems[1].setOnClickListener { handleSettings() }     // Settings
+        menuItems[0].setOnClickListener { handleRefresh() }      // Refresh
 
         windowManager.addView(overlayView, params)
     }
@@ -109,28 +151,26 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         
         if (isFeatureActive(menuItems[2].id)) {
             // Open floating mini chatbot
-            val intent = Intent("com.example.stremini_chatbot.OPEN_FLOATING_CHAT")
+            val intent = Intent(ACTION_OPEN_FLOATING_CHAT)
             sendBroadcast(intent)
         } else {
             // Close floating chatbot
-            val intent = Intent("com.example.stremini_chatbot.CLOSE_FLOATING_CHAT")
+            val intent = Intent(ACTION_CLOSE_FLOATING_CHAT)
             sendBroadcast(intent)
         }
     }
 
-    private fun handleScreenScanner() {
-        toggleFeature(menuItems[4].id)
+    private fun handleScanner() {
+        toggleFeature(menuItems[3].id)
         
-        if (isFeatureActive(menuItems[4].id)) {
-            // Start scanning
-            val intent = Intent(this, ScreenScannerService::class.java)
-            intent.action = ScreenScannerService.ACTION_START_SCAN
-            startService(intent)
+        if (isFeatureActive(menuItems[3].id)) {
+            // Open scanner overlay
+            val intent = Intent(ACTION_OPEN_SCANNER)
+            sendBroadcast(intent)
         } else {
-            // Stop scanning
-            val intent = Intent(this, ScreenScannerService::class.java)
-            intent.action = ScreenScannerService.ACTION_STOP_SCAN
-            startService(intent)
+            // Close scanner overlay
+            val intent = Intent(ACTION_CLOSE_SCANNER)
+            sendBroadcast(intent)
         }
     }
 
@@ -146,6 +186,14 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         // Deactivate all features
         activeFeatures.clear()
         updateMenuItemsColor()
+        
+        // Close floating chat if open
+        val chatIntent = Intent(ACTION_CLOSE_FLOATING_CHAT)
+        sendBroadcast(chatIntent)
+        
+        // Close scanner if open
+        val scannerIntent = Intent(ACTION_CLOSE_SCANNER)
+        sendBroadcast(scannerIntent)
     }
 
     private fun toggleFeature(featureId: Int) {
@@ -164,13 +212,13 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private fun updateMenuItemsColor() {
         menuItems.forEach { item ->
             if (activeFeatures.contains(item.id)) {
-                // Feature is active - make it blue
+                // Feature is active - make it cyan
                 item.setColorFilter(android.graphics.Color.parseColor("#00D9FF"))
             } else {
                 // Feature is inactive - default color
                 when(item.id) {
                     R.id.btn_ai -> item.setColorFilter(android.graphics.Color.parseColor("#23A6E2"))
-                    R.id.btn_security -> item.setColorFilter(android.graphics.Color.parseColor("#AA75F4"))
+                    R.id.btn_scanner -> item.setColorFilter(android.graphics.Color.parseColor("#E040FB"))
                     R.id.btn_keyboard -> item.setColorFilter(android.graphics.Color.parseColor("#0066FF"))
                     else -> item.setColorFilter(android.graphics.Color.parseColor("#23A6E2"))
                 }
@@ -339,6 +387,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
     override fun onDestroy() {
         super.onDestroy()
+        unregisterReceiver(controlReceiver)
         if (::overlayView.isInitialized) windowManager.removeView(overlayView)
     }
 }
