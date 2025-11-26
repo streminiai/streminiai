@@ -3,14 +3,89 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content">
 
+    <!-- Main Bubble Icon -->
     <ImageView
         android:id="@+id/bubble_icon"
         android:layout_width="78dp"
         android:layout_height="78dp"
         android:background="@drawable/glow_gradient_ring"
-        android:src="@android:drawable/ic_dialog_email" 
-        android:padding="20dp" 
+        android:src="@android:drawable/ic_dialog_email"
+        android:padding="20dp"
         android:contentDescription="Chat Head"
         android:layout_gravity="center"
-        android:elevation="10dp" 
-        android:tint="#F5F5F5"/> </FrameLayout>
+        android:elevation="10dp"
+        android:tint="#F5F5F5"/>
+
+    <!-- Menu Items (Initially Hidden) -->
+    
+    <!-- AI Chat Button -->
+    <ImageView
+        android:id="@+id/btn_ai"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:background="@drawable/circle_bg_blue"
+        android:src="@android:drawable/ic_dialog_info"
+        android:padding="16dp"
+        android:contentDescription="AI Chat"
+        android:layout_gravity="center"
+        android:elevation="8dp"
+        android:tint="#23A6E2"
+        android:visibility="gone"/>
+
+    <!-- Screen Scanner Button -->
+    <ImageView
+        android:id="@+id/btn_security"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:background="@drawable/circle_bg_purple"
+        android:src="@android:drawable/ic_secure"
+        android:padding="16dp"
+        android:contentDescription="Screen Scanner"
+        android:layout_gravity="center"
+        android:elevation="8dp"
+        android:tint="#AA75F4"
+        android:visibility="gone"/>
+
+    <!-- Voice Commands Button -->
+    <ImageView
+        android:id="@+id/btn_keyboard"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:background="@drawable/circle_bg_blue"
+        android:src="@android:drawable/ic_btn_speak_now"
+        android:padding="16dp"
+        android:contentDescription="Voice Commands"
+        android:layout_gravity="center"
+        android:elevation="8dp"
+        android:tint="#0066FF"
+        android:visibility="gone"/>
+
+    <!-- Settings Button -->
+    <ImageView
+        android:id="@+id/btn_settings"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:background="@drawable/circle_bg_blue"
+        android:src="@android:drawable/ic_menu_preferences"
+        android:padding="16dp"
+        android:contentDescription="Settings"
+        android:layout_gravity="center"
+        android:elevation="8dp"
+        android:tint="#23A6E2"
+        android:visibility="gone"/>
+
+    <!-- Refresh Button -->
+    <ImageView
+        android:id="@+id/btn_refresh"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:background="@drawable/circle_bg_blue"
+        android:src="@android:drawable/ic_menu_rotate"
+        android:padding="16dp"
+        android:contentDescription="Refresh"
+        android:layout_gravity="center"
+        android:elevation="8dp"
+        android:tint="#23A6E2"
+        android:visibility="gone"/>
+
+</FrameLayout>
