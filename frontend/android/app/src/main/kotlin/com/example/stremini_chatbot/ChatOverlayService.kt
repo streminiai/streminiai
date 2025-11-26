@@ -26,8 +26,11 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private lateinit var params: WindowManager.LayoutParams
 
     private lateinit var bubbleIcon: ImageView
-    private lateinit var menuItems: List<ImageView> // Changed to simple list of Views
+    private lateinit var menuItems: List<ImageView>
     private var isMenuExpanded = false
+
+    // Track active features
+    private val activeFeatures = mutableSetOf<Int>()
 
     // Drag Logic Variables
     private var initialX = 0
@@ -37,9 +40,9 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private var isDragging = false
 
     // Configuration
-    private val bubbleSizeDp = 78f // Matches your Flutter size
+    private val bubbleSizeDp = 78f
     private val menuItemSizeDp = 60f
-    private val radiusDp = 110f // Matches your Flutter radius
+    private val radiusDp = 110f
 
     // Position storage
     private var lastCollapsedX = 0
@@ -62,7 +65,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         overlayView = LayoutInflater.from(this).inflate(R.layout.chat_bubble_layout, null)
         bubbleIcon = overlayView.findViewById(R.id.bubble_icon)
         
-        // Get references to menu items (Order matters: Top to Bottom visually)
+        // Get references to menu items
         menuItems = listOf(
             overlayView.findViewById(R.id.btn_refresh),
             overlayView.findViewById(R.id.btn_settings),
@@ -91,13 +94,88 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
         bubbleIcon.setOnTouchListener(this)
         
-        menuItems.forEach { view ->
-            view.setOnClickListener {
-                openMainApp()
-            }
-        }
+        // Set click listeners for menu items
+        menuItems[2].setOnClickListener { handleAIChat() }       // AI Chat
+        menuItems[4].setOnClickListener { handleScreenScanner() } // Scanner
+        menuItems[3].setOnClickListener { handleVoiceCommand() }  // Voice
+        menuItems[1].setOnClickListener { handleSettings() }      // Settings
+        menuItems[0].setOnClickListener { handleRefresh() }       // Refresh
 
         windowManager.addView(overlayView, params)
+    }
+
+    private fun handleAIChat() {
+        toggleFeature(menuItems[2].id)
+        
+        if (isFeatureActive(menuItems[2].id)) {
+            // Open floating mini chatbot
+            val intent = Intent("com.example.stremini_chatbot.OPEN_FLOATING_CHAT")
+            sendBroadcast(intent)
+        } else {
+            // Close floating chatbot
+            val intent = Intent("com.example.stremini_chatbot.CLOSE_FLOATING_CHAT")
+            sendBroadcast(intent)
+        }
+    }
+
+    private fun handleScreenScanner() {
+        toggleFeature(menuItems[4].id)
+        
+        if (isFeatureActive(menuItems[4].id)) {
+            // Start scanning
+            val intent = Intent(this, ScreenScannerService::class.java)
+            intent.action = ScreenScannerService.ACTION_START_SCAN
+            startService(intent)
+        } else {
+            // Stop scanning
+            val intent = Intent(this, ScreenScannerService::class.java)
+            intent.action = ScreenScannerService.ACTION_STOP_SCAN
+            startService(intent)
+        }
+    }
+
+    private fun handleVoiceCommand() {
+        // TODO: Implement voice command
+    }
+
+    private fun handleSettings() {
+        openMainApp()
+    }
+
+    private fun handleRefresh() {
+        // Deactivate all features
+        activeFeatures.clear()
+        updateMenuItemsColor()
+    }
+
+    private fun toggleFeature(featureId: Int) {
+        if (activeFeatures.contains(featureId)) {
+            activeFeatures.remove(featureId)
+        } else {
+            activeFeatures.add(featureId)
+        }
+        updateMenuItemsColor()
+    }
+
+    private fun isFeatureActive(featureId: Int): Boolean {
+        return activeFeatures.contains(featureId)
+    }
+
+    private fun updateMenuItemsColor() {
+        menuItems.forEach { item ->
+            if (activeFeatures.contains(item.id)) {
+                // Feature is active - make it blue
+                item.setColorFilter(android.graphics.Color.parseColor("#00D9FF"))
+            } else {
+                // Feature is inactive - default color
+                when(item.id) {
+                    R.id.btn_ai -> item.setColorFilter(android.graphics.Color.parseColor("#23A6E2"))
+                    R.id.btn_security -> item.setColorFilter(android.graphics.Color.parseColor("#AA75F4"))
+                    R.id.btn_keyboard -> item.setColorFilter(android.graphics.Color.parseColor("#0066FF"))
+                    else -> item.setColorFilter(android.graphics.Color.parseColor("#23A6E2"))
+                }
+            }
+        }
     }
 
     override fun onTouch(v: View, event: MotionEvent): Boolean {
@@ -151,7 +229,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         val bubbleSizePx = dpToPx(bubbleSizeDp).toFloat()
         val menuItemSizePx = dpToPx(menuItemSizeDp).toFloat()
 
-        // 1. Resize Window to allow expansion
         val expandedWindowSizePx = (radiusPx * 2) + bubbleSizePx + menuItemSizePx
         val offsetPx = (expandedWindowSizePx / 2) - (bubbleSizePx / 2)
 
@@ -161,24 +238,20 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         params.width = expandedWindowSizePx.toInt()
         params.height = expandedWindowSizePx.toInt()
         
-        // Center the new large window over the bubble
         params.x = currentX - offsetPx.toInt()
         params.y = currentY - offsetPx.toInt()
         
         windowManager.updateViewLayout(overlayView, params)
 
-        // 2. Determine Side and Angles
         val screenWidth = resources.displayMetrics.widthPixels
-        // Calculate where the bubble center is relative to screen
         val bubbleCenterX = lastCollapsedX + (bubbleSizePx / 2)
         val isOnRightSide = bubbleCenterX > (screenWidth / 2)
         
- double startAngle = isOnRightSide ? 90.0 : 90.0;
-    double endAngle = isOnRightSide ? 270.0 : -90.0;
+        val startAngle = if (isOnRightSide) 90.0 else 90.0
+        val endAngle = if (isOnRightSide) 270.0 else -90.0
 
         val step = (endAngle - startAngle) / (menuItems.size - 1)
 
-        // 3. Animate Items
         for ((index, view) in menuItems.withIndex()) {
             view.visibility = View.VISIBLE
             view.alpha = 0f
@@ -186,7 +259,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             val angle = startAngle + (index * step)
             val rad = Math.toRadians(angle)
             
-            // Android Y is Down, so -sin(rad) moves Up
             val targetX = (radiusPx * cos(rad)).toFloat()
             val targetY = (radiusPx * -sin(rad)).toFloat()
 
@@ -232,7 +304,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         val currentCenterX = params.x + (bubbleSizePx / 2) 
         val middle = screenWidth / 2
         
-        // Snap Logic
         val targetX = if (currentCenterX > middle) {
             screenWidth - bubbleSizePx.toInt() 
         } else {
@@ -250,7 +321,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                         Intent.FLAG_ACTIVITY_SINGLE_TOP or 
                         Intent.FLAG_ACTIVITY_CLEAR_TOP)
         startActivity(intent)
-        stopSelf()
     }
 
     private fun startForegroundService() {
