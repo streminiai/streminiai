@@ -1,8 +1,12 @@
+// File: frontend/lib/widgets/whatsapp_floating_chat.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/api_service.dart';
 
-// Enhanced Floating Chatbot State
+// ========================================
+// MESSAGE MODEL
+// ========================================
 class FloatingChatMessage {
   final String text;
   final bool isUser;
@@ -17,6 +21,9 @@ class FloatingChatMessage {
   });
 }
 
+// ========================================
+// STATE MODEL
+// ========================================
 class EnhancedFloatingChatState {
   final bool isVisible;
   final bool isExpanded;
@@ -57,6 +64,9 @@ class EnhancedFloatingChatState {
   }
 }
 
+// ========================================
+// STATE NOTIFIER
+// ========================================
 class EnhancedFloatingChatNotifier extends Notifier<EnhancedFloatingChatState> {
   @override
   EnhancedFloatingChatState build() {
@@ -139,11 +149,16 @@ class EnhancedFloatingChatNotifier extends Notifier<EnhancedFloatingChatState> {
   }
 }
 
+// ========================================
+// PROVIDER
+// ========================================
 final enhancedFloatingChatProvider = NotifierProvider<EnhancedFloatingChatNotifier, EnhancedFloatingChatState>(
   EnhancedFloatingChatNotifier.new,
 );
 
-// WhatsApp-Style Floating Chatbot Widget
+// ========================================
+// MAIN WIDGET
+// ========================================
 class WhatsAppStyleFloatingChat extends ConsumerStatefulWidget {
   const WhatsAppStyleFloatingChat({super.key});
 
@@ -163,7 +178,7 @@ class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatin
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 300),
     );
     _scaleAnimation = CurvedAnimation(
       parent: _animationController,
@@ -214,6 +229,13 @@ class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatin
       _animationController.reverse();
     }
 
+    // Auto-scroll when messages change
+    ref.listen<EnhancedFloatingChatState>(enhancedFloatingChatProvider, (previous, next) {
+      if (next.messages.length > (previous?.messages.length ?? 0)) {
+        _scrollToBottom();
+      }
+    });
+
     final screenSize = MediaQuery.of(context).size;
 
     return Stack(
@@ -241,24 +263,27 @@ class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatin
     );
   }
 
+  // ========================================
+  // FLOATING ICON
+  // ========================================
   Widget _buildFloatingIcon(EnhancedFloatingChatNotifier notifier, Size screenSize) {
+    final state = ref.watch(enhancedFloatingChatProvider);
+    
     return GestureDetector(
       onPanStart: (_) => notifier.setDragging(true),
       onPanUpdate: (details) {
         final newPosition = Offset(
-          (ref.read(enhancedFloatingChatProvider).position.dx + details.delta.dx)
-              .clamp(0, screenSize.width - 60),
-          (ref.read(enhancedFloatingChatProvider).position.dy + details.delta.dy)
-              .clamp(0, screenSize.height - 60),
+          (state.position.dx + details.delta.dx).clamp(0.0, screenSize.width - 60),
+          (state.position.dy + details.delta.dy).clamp(0.0, screenSize.height - 60),
         );
         notifier.updatePosition(newPosition);
       },
       onPanEnd: (details) {
         notifier.setDragging(false);
         // Snap to nearest edge
-        final currentX = ref.read(enhancedFloatingChatProvider).position.dx;
+        final currentX = state.position.dx;
         final snapX = currentX < screenSize.width / 2 ? 20.0 : screenSize.width - 80;
-        notifier.updatePosition(Offset(snapX, ref.read(enhancedFloatingChatProvider).position.dy));
+        notifier.updatePosition(Offset(snapX, state.position.dy));
       },
       onTap: () => notifier.toggleExpand(),
       child: Container(
@@ -287,20 +312,23 @@ class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatin
               ),
             ),
             // Unread badge
-            if (ref.watch(enhancedFloatingChatProvider).messages.isNotEmpty)
+            if (state.messages.isNotEmpty)
               Positioned(
                 top: 4,
                 right: 4,
                 child: Container(
-                  width: 20,
-                  height: 20,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(
+                    minWidth: 20,
+                    minHeight: 20,
+                  ),
                   decoration: const BoxDecoration(
                     color: Colors.red,
                     shape: BoxShape.circle,
                   ),
                   child: Center(
                     child: Text(
-                      '${ref.watch(enhancedFloatingChatProvider).messages.length}',
+                      '${state.messages.length > 9 ? '9+' : state.messages.length}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 10,
@@ -316,9 +344,10 @@ class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatin
     );
   }
 
+  // ========================================
+  // EXPANDED CHAT
+  // ========================================
   Widget _buildExpandedChat(EnhancedFloatingChatNotifier notifier) {
-    final state = ref.watch(enhancedFloatingChatProvider);
-
     return ScaleTransition(
       scale: _scaleAnimation,
       child: Material(
@@ -343,7 +372,7 @@ class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatin
               
               // Messages
               Expanded(
-                child: _buildMessagesList(state),
+                child: _buildMessagesList(),
               ),
               
               // Input
@@ -355,6 +384,9 @@ class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatin
     );
   }
 
+  // ========================================
+  // CHAT HEADER
+  // ========================================
   Widget _buildChatHeader(EnhancedFloatingChatNotifier notifier) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -362,57 +394,65 @@ class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatin
         color: Color(0xFF1F2C34),
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: SweepGradient(
-                colors: [Color(0xFF25D366), Color(0xFF128C7E)],
+      child: SafeArea(
+        bottom: false,
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: SweepGradient(
+                  colors: [Color(0xFF25D366), Color(0xFF128C7E)],
+                ),
+              ),
+              child: const Icon(Icons.smart_toy, color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Stremini AI',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    'Online',
+                    style: TextStyle(
+                      color: Color(0xFF25D366),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: const Icon(Icons.smart_toy, color: Colors.white, size: 22),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Stremini AI',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  'Online',
-                  style: TextStyle(
-                    color: Color(0xFF25D366),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.white70),
+              onPressed: () => notifier.clearMessages(),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white70),
-            onPressed: () => notifier.clearMessages(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.white70),
-            onPressed: () => notifier.hide(),
-          ),
-        ],
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.white70),
+              onPressed: () => notifier.hide(),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildMessagesList(EnhancedFloatingChatState state) {
-    if (state.messages.isEmpty) {
+  // ========================================
+  // MESSAGES LIST
+  // ========================================
+  Widget _buildMessagesList() {
+    final state = ref.watch(enhancedFloatingChatProvider);
+
+    if (state.messages.isEmpty && !state.isLoading) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -436,15 +476,7 @@ class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatin
     }
 
     return Container(
-      decoration: const BoxDecoration(
-        image: DecorationImage(
-          image: NetworkImage(
-            'https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png',
-          ),
-          fit: BoxFit.cover,
-          opacity: 0.05,
-        ),
-      ),
+      color: const Color(0xFF0B141A),
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.all(16),
@@ -461,20 +493,23 @@ class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatin
     );
   }
 
+  // ========================================
+  // MESSAGE BUBBLE
+  // ========================================
   Widget _buildMessageBubble(FloatingChatMessage message) {
     return Align(
       alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
+        margin: const EdgeInsets.only(bottom: 12),
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.7,
+          maxWidth: MediaQuery.of(context).size.width * 0.65,
         ),
         child: Column(
           crossAxisAlignment:
               message.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: message.isUser
                     ? const Color(0xFF005C4B)
@@ -495,15 +530,19 @@ class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatin
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 14,
+                  height: 1.4,
                 ),
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              _formatTime(message.timestamp),
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
-                fontSize: 10,
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                _formatTime(message.timestamp),
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 11,
+                ),
               ),
             ),
           ],
@@ -512,11 +551,14 @@ class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatin
     );
   }
 
+  // ========================================
+  // TYPING INDICATOR
+  // ========================================
   Widget _buildTypingIndicator() {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
+        margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: const BoxDecoration(
           color: Color(0xFF1F2C34),
@@ -542,6 +584,7 @@ class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatin
 
   Widget _buildDot(int index) {
     return TweenAnimationBuilder<double>(
+      key: ValueKey(index),
       tween: Tween(begin: 0.0, end: 1.0),
       duration: Duration(milliseconds: 600 + (index * 100)),
       builder: (context, value, child) {
@@ -554,9 +597,16 @@ class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatin
           ),
         );
       },
+      onEnd: () {
+        // Restart animation
+        setState(() {});
+      },
     );
   }
 
+  // ========================================
+  // CHAT INPUT
+  // ========================================
   Widget _buildChatInput() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -564,50 +614,58 @@ class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatin
         color: Color(0xFF1F2C34),
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2A3942),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: TextField(
-                controller: _controller,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'Type a message',
-                  hintStyle: TextStyle(color: Colors.white54),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 10),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2A3942),
+                  borderRadius: BorderRadius.circular(24),
                 ),
-                onSubmitted: (_) => _sendMessage(),
+                child: TextField(
+                  controller: _controller,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    hintText: 'Type a message',
+                    hintStyle: TextStyle(color: Colors.white54),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  onSubmitted: (_) => _sendMessage(),
+                  maxLines: null,
+                  textInputAction: TextInputAction.send,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: _sendMessage,
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(
-                color: Color(0xFF25D366),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.send_rounded,
-                color: Colors.white,
-                size: 20,
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: _sendMessage,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF25D366),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.send_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
+  // ========================================
+  // HELPER METHODS
+  // ========================================
   String _formatTime(DateTime timestamp) {
     final hour = timestamp.hour.toString().padLeft(2, '0');
     final minute = timestamp.minute.toString().padLeft(2, '0');
