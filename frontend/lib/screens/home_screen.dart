@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 
 // Bubble state provider
-final bubbleActiveProvider = StateProvider<bool>((ref) => false);
+final bubbleActiveProvider = StateProvider.autoDispose<bool>((ref) => false);
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -50,9 +50,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await Future.delayed(const Duration(seconds: 1));
       await _checkPermissions();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     }
   }
 
@@ -64,9 +66,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await Future.delayed(const Duration(seconds: 1));
       await _checkPermissions();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     }
   }
 
@@ -84,9 +88,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
       ref.read(bubbleActiveProvider.notifier).state = value;
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     }
   }
 
@@ -104,9 +110,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Container(
               width: 32,
               height: 32,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const SweepGradient(
+                gradient: SweepGradient(
                   colors: [Color(0xFF23A6E2), Color(0xFFAA75F4), Color(0xFF0066FF)],
                 ),
               ),
