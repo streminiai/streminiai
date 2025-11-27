@@ -61,11 +61,11 @@ class _AppWrapperState extends ConsumerState<AppWrapper> {
         final action = event['action'] as String?;
         
         if (action == 'open_floating_chat') {
-          // Show WhatsApp-style floating chatbot
-          ref.read(enhancedFloatingChatProvider.notifier).show();
+          // Show HTML-style floating bubble and chatbot
+          ref.read(htmlFloatingProvider.notifier).showBubble();
         } else if (action == 'close_floating_chat') {
-          // Hide floating chatbot
-          ref.read(enhancedFloatingChatProvider.notifier).hide();
+          // Hide floating bubble and chatbot
+          ref.read(htmlFloatingProvider.notifier).hideBubble();
         } else if (action == 'open_scanner') {
           // TODO: Show scanner if needed
         } else if (action == 'close_scanner') {
@@ -89,7 +89,7 @@ class _AppWrapperState extends ConsumerState<AppWrapper> {
         // Main app content
         const HomeScreen(),
         
-        // HTML-style Floating Chatbot
+        // HTML-style Floating Bubble + Chatbot
         const HtmlStyleFloatingChat(),
       ],
     );
