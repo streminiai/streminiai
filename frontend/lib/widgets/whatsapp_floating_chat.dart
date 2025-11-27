@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import '../services/api_service.dart';
 
 // ========================================
-// MESSAGE MODEL FOR FLOATING CHAT
+// MESSAGE MODEL
 // ========================================
 class FloatingMessage {
   final String text;
@@ -19,38 +19,38 @@ class FloatingMessage {
 }
 
 // ========================================
-// STATE MODEL
+// STATE MODEL (EXACT HTML REPLICA)
 // ========================================
-class WebViewFloatingChatState {
-  final bool isVisible;
-  final bool showRadialMenu;
-  final bool showMiniChat;
-  final Offset position;
+class HtmlFloatingState {
+  final bool bubbleVisible;
+  final bool radialMenuOpen;
+  final bool chatboxOpen;
+  final Offset bubblePosition;
   final List<FloatingMessage> messages;
   final bool isLoading;
 
-  WebViewFloatingChatState({
-    this.isVisible = false,
-    this.showRadialMenu = false,
-    this.showMiniChat = false,
-    this.position = const Offset(100, 200),
+  HtmlFloatingState({
+    this.bubbleVisible = true,
+    this.radialMenuOpen = false,
+    this.chatboxOpen = false,
+    this.bubblePosition = const Offset(100, 200),
     this.messages = const [],
     this.isLoading = false,
   });
 
-  WebViewFloatingChatState copyWith({
-    bool? isVisible,
-    bool? showRadialMenu,
-    bool? showMiniChat,
-    Offset? position,
+  HtmlFloatingState copyWith({
+    bool? bubbleVisible,
+    bool? radialMenuOpen,
+    bool? chatboxOpen,
+    Offset? bubblePosition,
     List<FloatingMessage>? messages,
     bool? isLoading,
   }) {
-    return WebViewFloatingChatState(
-      isVisible: isVisible ?? this.isVisible,
-      showRadialMenu: showRadialMenu ?? this.showRadialMenu,
-      showMiniChat: showMiniChat ?? this.showMiniChat,
-      position: position ?? this.position,
+    return HtmlFloatingState(
+      bubbleVisible: bubbleVisible ?? this.bubbleVisible,
+      radialMenuOpen: radialMenuOpen ?? this.radialMenuOpen,
+      chatboxOpen: chatboxOpen ?? this.chatboxOpen,
+      bubblePosition: bubblePosition ?? this.bubblePosition,
       messages: messages ?? this.messages,
       isLoading: isLoading ?? this.isLoading,
     );
@@ -60,40 +60,39 @@ class WebViewFloatingChatState {
 // ========================================
 // STATE NOTIFIER
 // ========================================
-class WebViewFloatingChatNotifier extends Notifier<WebViewFloatingChatState> {
+class HtmlFloatingNotifier extends Notifier<HtmlFloatingState> {
   @override
-  WebViewFloatingChatState build() {
-    return WebViewFloatingChatState();
+  HtmlFloatingState build() {
+    return HtmlFloatingState();
   }
 
-  void show() {
-    state = state.copyWith(isVisible: true);
+  void showBubble() {
+    state = state.copyWith(bubbleVisible: true);
   }
 
-  void hide() {
-    state = WebViewFloatingChatState();
+  void hideBubble() {
+    state = HtmlFloatingState();
   }
 
   void toggleRadialMenu() {
     state = state.copyWith(
-      showRadialMenu: !state.showRadialMenu,
-      showMiniChat: false,
+      radialMenuOpen: !state.radialMenuOpen,
     );
   }
 
-  void openMiniChat() {
+  void openChatbox() {
     state = state.copyWith(
-      showMiniChat: true,
-      showRadialMenu: false,
+      chatboxOpen: true,
+      radialMenuOpen: false,
     );
   }
 
-  void closeMiniChat() {
-    state = state.copyWith(showMiniChat: false);
+  void closeChatbox() {
+    state = state.copyWith(chatboxOpen: false);
   }
 
-  void updatePosition(Offset newPosition) {
-    state = state.copyWith(position: newPosition);
+  void updateBubblePosition(Offset newPosition) {
+    state = state.copyWith(bubblePosition: newPosition);
   }
 
   void addMessage(String text, bool isUser) {
@@ -130,21 +129,21 @@ class WebViewFloatingChatNotifier extends Notifier<WebViewFloatingChatState> {
 // ========================================
 // PROVIDER
 // ========================================
-final webViewFloatingChatProvider = NotifierProvider<WebViewFloatingChatNotifier, WebViewFloatingChatState>(
-  WebViewFloatingChatNotifier.new,
+final htmlFloatingProvider = NotifierProvider<HtmlFloatingNotifier, HtmlFloatingState>(
+  HtmlFloatingNotifier.new,
 );
 
 // ========================================
-// MAIN FLOATING WIDGET (FROM HTML)
+// MAIN WIDGET - EXACT HTML REPLICA
 // ========================================
-class WebViewStyleFloatingChat extends ConsumerStatefulWidget {
-  const WebViewStyleFloatingChat({super.key});
+class HtmlStyleFloatingChat extends ConsumerStatefulWidget {
+  const HtmlStyleFloatingChat({super.key});
 
   @override
-  ConsumerState<WebViewStyleFloatingChat> createState() => _WebViewStyleFloatingChatState();
+  ConsumerState<HtmlStyleFloatingChat> createState() => _HtmlStyleFloatingChatState();
 }
 
-class _WebViewStyleFloatingChatState extends ConsumerState<WebViewStyleFloatingChat>
+class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
     with TickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -175,19 +174,30 @@ class _WebViewStyleFloatingChatState extends ConsumerState<WebViewStyleFloatingC
   void _sendMessage() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-    ref.read(webViewFloatingChatProvider.notifier).sendMessage(text);
+    ref.read(htmlFloatingProvider.notifier).sendMessage(text);
     _controller.clear();
+    
+    // Auto-scroll
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(webViewFloatingChatProvider);
-    final notifier = ref.read(webViewFloatingChatProvider.notifier);
+    final state = ref.watch(htmlFloatingProvider);
+    final notifier = ref.read(htmlFloatingProvider.notifier);
 
-    if (!state.isVisible) return const SizedBox.shrink();
+    if (!state.bubbleVisible) return const SizedBox.shrink();
 
     // Update animation
-    if (state.showRadialMenu) {
+    if (state.radialMenuOpen) {
       _radialController.forward();
     } else {
       _radialController.reverse();
@@ -197,42 +207,44 @@ class _WebViewStyleFloatingChatState extends ConsumerState<WebViewStyleFloatingC
 
     return Stack(
       children: [
-        // Floating Icon with Radial Menu
+        // 1. FLOATING BUBBLE + RADIAL MENU (Always visible)
         Positioned(
-          left: state.position.dx,
-          top: state.position.dy,
-          child: _buildFloatingBubble(notifier, screenSize, state),
+          left: state.bubblePosition.dx,
+          top: state.bubblePosition.dy,
+          child: _buildStreminiWrapper(notifier, screenSize, state),
         ),
 
-        // Mini Chatbox (Like HTML version)
-        if (state.showMiniChat) _buildMiniChatbox(notifier),
+        // 2. CHATBOX (Opens when AI button clicked)
+        if (state.chatboxOpen) _buildChatbox(notifier, state),
       ],
     );
   }
 
   // ========================================
-  // FLOATING BUBBLE WITH RADIAL MENU
+  // STREMINI WRAPPER (Bubble + Radial Menu)
   // ========================================
-  Widget _buildFloatingBubble(
-    WebViewFloatingChatNotifier notifier,
+  Widget _buildStreminiWrapper(
+    HtmlFloatingNotifier notifier,
     Size screenSize,
-    WebViewFloatingChatState state,
+    HtmlFloatingState state,
   ) {
     return GestureDetector(
       onPanUpdate: (details) {
-        if (!state.showRadialMenu) {
-          final newX = (state.position.dx + details.delta.dx)
+        if (!state.radialMenuOpen) {
+          final newX = (state.bubblePosition.dx + details.delta.dx)
               .clamp(0.0, screenSize.width - 160);
-          final newY = (state.position.dy + details.delta.dy)
+          final newY = (state.bubblePosition.dy + details.delta.dy)
               .clamp(0.0, screenSize.height - 160);
-          notifier.updatePosition(Offset(newX, newY));
+          notifier.updateBubblePosition(Offset(newX, newY));
         }
       },
       onPanEnd: (details) {
         // Snap to edge
-        final currentX = state.position.dx;
-        final snapX = currentX < screenSize.width / 2 ? 0.0 : screenSize.width - 160;
-        notifier.updatePosition(Offset(snapX, state.position.dy));
+        final currentX = state.bubblePosition.dx;
+        final snapX = currentX < screenSize.width / 2 
+            ? 0.0 
+            : screenSize.width - 160;
+        notifier.updateBubblePosition(Offset(snapX, state.bubblePosition.dy));
       },
       child: SizedBox(
         width: 160,
@@ -240,36 +252,14 @@ class _WebViewStyleFloatingChatState extends ConsumerState<WebViewStyleFloatingC
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Radial Menu Items
-            if (state.showRadialMenu) ..._buildRadialMenuItems(notifier, screenSize, state),
+            // Feature Buttons (Radial Menu)
+            if (state.radialMenuOpen) 
+              ..._buildFeatureButtons(notifier, screenSize, state),
 
-            // Main Logo Button
+            // Logo (Center)
             GestureDetector(
               onTap: () => notifier.toggleRadialMenu(),
-              child: Container(
-                width: 55,
-                height: 55,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.black,
-                  border: Border.all(
-                    width: 3,
-                    color: const Color(0xFF2979FF),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF00AAFF).withOpacity(0.6),
-                      blurRadius: 15,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.chat,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
+              child: _buildLogo(),
             ),
           ],
         ),
@@ -277,40 +267,66 @@ class _WebViewStyleFloatingChatState extends ConsumerState<WebViewStyleFloatingC
     );
   }
 
-  List<Widget> _buildRadialMenuItems(
-    WebViewFloatingChatNotifier notifier,
+  // ========================================
+  // LOGO (Center Bubble)
+  // ========================================
+  Widget _buildLogo() {
+    return Container(
+      width: 55,
+      height: 55,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.black,
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00AAFF).withOpacity(0.6),
+            blurRadius: 15,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Container(
+        margin: const EdgeInsets.all(3),
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: SweepGradient(
+            colors: [
+              Color(0xFF23A6E2),
+              Color(0xFFAA75F4),
+              Color(0xFF0066FF),
+            ],
+          ),
+        ),
+        child: const Icon(
+          Icons.chat,
+          color: Colors.white,
+          size: 26,
+        ),
+      ),
+    );
+  }
+
+  // ========================================
+  // FEATURE BUTTONS (5 Radial Items)
+  // ========================================
+  List<Widget> _buildFeatureButtons(
+    HtmlFloatingNotifier notifier,
     Size screenSize,
-    WebViewFloatingChatState state,
+    HtmlFloatingState state,
   ) {
     const double radius = 70.0;
-    final isOnRightSide = (state.position.dx + 80) > (screenSize.width / 2);
+    final isOnRightSide = (state.bubblePosition.dx + 80) > (screenSize.width / 2);
 
     final List<Map<String, dynamic>> items = [
+      {'icon': Icons.refresh, 'color': const Color(0xFF23A6E2)},
+      {'icon': Icons.settings, 'color': const Color(0xFF23A6E2)},
       {
-        'icon': Icons.message,
-        'color': const Color(0xFF448AFF),
-        'onTap': () {},
-      },
-      {
-        'icon': Icons.settings,
-        'color': const Color(0xFF448AFF),
-        'onTap': () {},
-      },
-      {
-        'icon': Icons.chat_bubble,
+        'icon': Icons.chat_bubble, 
         'color': const Color(0xFF23A6E2),
-        'onTap': () => notifier.openMiniChat(),
+        'onTap': () => notifier.openChatbox(), // Open chatbox
       },
-      {
-        'icon': Icons.mic,
-        'color': const Color(0xFF0066FF),
-        'onTap': () {},
-      },
-      {
-        'icon': Icons.refresh,
-        'color': const Color(0xFF23A6E2),
-        'onTap': () => notifier.toggleRadialMenu(),
-      },
+      {'icon': Icons.search, 'color': const Color(0xFFE040FB)},
+      {'icon': Icons.mic, 'color': const Color(0xFF0066FF)},
     ];
 
     final double startAngle = isOnRightSide ? 90.0 : 90.0;
@@ -341,10 +357,7 @@ class _WebViewStyleFloatingChatState extends ConsumerState<WebViewStyleFloatingC
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: const Color(0xFF1A1A1A),
-                    border: Border.all(
-                      color: items[index]['color'],
-                      width: 2,
-                    ),
+                    border: Border.all(color: items[index]['color'], width: 2),
                   ),
                   child: Icon(
                     items[index]['icon'],
@@ -361,11 +374,9 @@ class _WebViewStyleFloatingChatState extends ConsumerState<WebViewStyleFloatingC
   }
 
   // ========================================
-  // MINI CHATBOX (EXACT HTML STYLE)
+  // CHATBOX (Mini Chat Window)
   // ========================================
-  Widget _buildMiniChatbox(WebViewFloatingChatNotifier notifier) {
-    final state = ref.watch(webViewFloatingChatProvider);
-
+  Widget _buildChatbox(HtmlFloatingNotifier notifier, HtmlFloatingState state) {
     return Positioned(
       bottom: 100,
       right: 20,
@@ -381,7 +392,7 @@ class _WebViewStyleFloatingChatState extends ConsumerState<WebViewStyleFloatingC
           ),
           child: Column(
             children: [
-              // Header
+              // Chat Header
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: const BoxDecoration(
@@ -416,7 +427,7 @@ class _WebViewStyleFloatingChatState extends ConsumerState<WebViewStyleFloatingC
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close, color: Colors.white, size: 18),
-                      onPressed: () => notifier.closeMiniChat(),
+                      onPressed: () => notifier.closeChatbox(),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -424,14 +435,14 @@ class _WebViewStyleFloatingChatState extends ConsumerState<WebViewStyleFloatingC
                 ),
               ),
 
-              // Messages
+              // Chat Messages
               Expanded(
                 child: Container(
                   color: Colors.black,
                   child: state.messages.isEmpty
                       ? const Center(
                           child: Text(
-                            'Start chatting...',
+                            'Ask me anything...',
                             style: TextStyle(color: Colors.grey),
                           ),
                         )
@@ -441,11 +452,11 @@ class _WebViewStyleFloatingChatState extends ConsumerState<WebViewStyleFloatingC
                           itemCount: state.messages.length + (state.isLoading ? 1 : 0),
                           itemBuilder: (context, index) {
                             if (index == state.messages.length && state.isLoading) {
-                              return const Padding(
-                                padding: EdgeInsets.all(8.0),
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
                                 child: Row(
                                   children: [
-                                    SizedBox(
+                                    const SizedBox(
                                       width: 16,
                                       height: 16,
                                       child: CircularProgressIndicator(
@@ -453,8 +464,11 @@ class _WebViewStyleFloatingChatState extends ConsumerState<WebViewStyleFloatingC
                                         color: Color(0xFF23A6E2),
                                       ),
                                     ),
-                                    SizedBox(width: 8),
-                                    Text('...', style: TextStyle(color: Colors.white)),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '...',
+                                      style: TextStyle(color: Colors.grey[400]),
+                                    ),
                                   ],
                                 ),
                               );
@@ -492,7 +506,7 @@ class _WebViewStyleFloatingChatState extends ConsumerState<WebViewStyleFloatingC
                 ),
               ),
 
-              // Input Area
+              // Chat Input
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: const BoxDecoration(
@@ -525,18 +539,11 @@ class _WebViewStyleFloatingChatState extends ConsumerState<WebViewStyleFloatingC
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap: _sendMessage,
-                      child: Container(
+                      child: Image.network(
+                        'https://img.icons8.com/?size=100&id=IW5bIS9JfkRW&format=png',
                         width: 24,
                         height: 24,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Color(0xFF007BFF),
-                        ),
-                        child: const Icon(
-                          Icons.send,
-                          color: Colors.white,
-                          size: 14,
-                        ),
+                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(width: 8),
