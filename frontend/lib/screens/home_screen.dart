@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'chat_screen.dart';
 
 // Bubble state provider
 final bubbleActiveProvider = StateProvider.autoDispose<bool>((ref) => false);
@@ -273,7 +274,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               status: 'online 24/7',
               statusColor: Colors.green,
               badges: const ['Safety Tips', 'Multi-language'],
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ChatScreen()),
+                );
+              },
             ),
 
             const SizedBox(height: 16),
