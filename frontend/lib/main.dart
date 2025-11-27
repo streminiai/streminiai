@@ -89,8 +89,8 @@ class _AppWrapperState extends ConsumerState<AppWrapper> {
         // Main app content
         const HomeScreen(),
         
-        // WhatsApp-style Floating Chatbot
-        const WhatsAppStyleFloatingChat(),
+        // WebView-style Floating Chatbot
+        const WebViewStyleFloatingChat(),
       ],
     );
   }
