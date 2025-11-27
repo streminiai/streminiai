@@ -19,40 +19,75 @@ class FloatingMessage {
 }
 
 // ========================================
+// SCAN TAG MODEL
+// ========================================
+class ScanTag {
+  final String id;
+  final Offset position;
+  final String tag;
+  final Color color;
+  final String reason;
+
+  ScanTag({
+    required this.id,
+    required this.position,
+    required this.tag,
+    required this.color,
+    required this.reason,
+  });
+}
+
+// ========================================
 // STATE MODEL
 // ========================================
 class HtmlFloatingState {
   final bool bubbleVisible;
   final bool radialMenuOpen;
   final bool chatboxOpen;
+  final bool scannerActive;
+  final bool scanning;
   final Offset bubblePosition;
   final List<FloatingMessage> messages;
+  final List<ScanTag> scanTags;
   final bool isLoading;
+  final String? scanError;
 
   HtmlFloatingState({
     this.bubbleVisible = false,
     this.radialMenuOpen = false,
     this.chatboxOpen = false,
+    this.scannerActive = false,
+    this.scanning = false,
     this.bubblePosition = const Offset(100, 200),
     this.messages = const [],
+    this.scanTags = const [],
     this.isLoading = false,
+    this.scanError,
   });
 
   HtmlFloatingState copyWith({
     bool? bubbleVisible,
     bool? radialMenuOpen,
     bool? chatboxOpen,
+    bool? scannerActive,
+    bool? scanning,
     Offset? bubblePosition,
     List<FloatingMessage>? messages,
+    List<ScanTag>? scanTags,
     bool? isLoading,
+    String? scanError,
   }) {
     return HtmlFloatingState(
       bubbleVisible: bubbleVisible ?? this.bubbleVisible,
       radialMenuOpen: radialMenuOpen ?? this.radialMenuOpen,
       chatboxOpen: chatboxOpen ?? this.chatboxOpen,
+      scannerActive: scannerActive ?? this.scannerActive,
+      scanning: scanning ?? this.scanning,
       bubblePosition: bubblePosition ?? this.bubblePosition,
       messages: messages ?? this.messages,
+      scanTags: scanTags ?? this.scanTags,
       isLoading: isLoading ?? this.isLoading,
+      scanError: scanError,
     );
   }
 }
@@ -77,19 +112,87 @@ class HtmlFloatingNotifier extends Notifier<HtmlFloatingState> {
   void toggleRadialMenu() {
     state = state.copyWith(
       radialMenuOpen: !state.radialMenuOpen,
-      chatboxOpen: false, // Close chat when opening radial
+      chatboxOpen: false,
     );
   }
 
   void openChatbox() {
     state = state.copyWith(
       chatboxOpen: true,
-      radialMenuOpen: false, // Close radial when opening chat
+      radialMenuOpen: false,
     );
   }
 
   void closeChatbox() {
     state = state.copyWith(chatboxOpen: false);
+  }
+
+  void toggleScanner() {
+    if (state.scannerActive) {
+      // Turn off scanner
+      state = state.copyWith(
+        scannerActive: false,
+        scanTags: [],
+        scanError: null,
+      );
+    } else {
+      // Turn on scanner
+      startScanning();
+    }
+  }
+
+  void startScanning() async {
+    state = state.copyWith(
+      scanning: true,
+      scannerActive: true,
+      scanError: null,
+      radialMenuOpen: false,
+    );
+
+    try {
+      // Simulate screen reading (in real implementation, this would use accessibility service)
+      await Future.delayed(const Duration(seconds: 2));
+      
+      // Demo data - In real implementation, this comes from ScreenScannerService
+      final demoScanResult = _generateDemoScanTags();
+      
+      state = state.copyWith(
+        scanning: false,
+        scanTags: demoScanResult,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        scanning: false,
+        scanError: 'Scan failed: $e',
+      );
+    }
+  }
+
+  List<ScanTag> _generateDemoScanTags() {
+    // Demo tags at different positions
+    return [
+      ScanTag(
+        id: '1',
+        position: const Offset(100, 150),
+        tag: 'Scam',
+        color: const Color(0xFFD32F2F),
+        reason: 'Suspicious link detected',
+      ),
+      ScanTag(
+        id: '2',
+        position: const Offset(50, 300),
+        tag: 'Urgent',
+        color: const Color(0xFFFF5722),
+        reason: 'Pressure tactic used',
+      ),
+      ScanTag(
+        id: '3',
+        position: const Offset(200, 450),
+        tag: 'Safe',
+        color: const Color(0xFF4CAF50),
+        reason: 'Verified source',
+      ),
+    ];
   }
 
   void updateBubblePosition(Offset newPosition) {
@@ -139,7 +242,7 @@ final htmlFloatingProvider = NotifierProvider<HtmlFloatingNotifier, HtmlFloating
 );
 
 // ========================================
-// GRADIENT RING PAINTER (EXACT HTML REPLICA)
+// GRADIENT RING PAINTER
 // ========================================
 class GradientRingPainter extends CustomPainter {
   @override
@@ -147,7 +250,6 @@ class GradientRingPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
 
-    // Outer glow
     final glowPaint = Paint()
       ..shader = RadialGradient(
         colors: [
@@ -157,7 +259,6 @@ class GradientRingPainter extends CustomPainter {
       ).createShader(Rect.fromCircle(center: center, radius: radius));
     canvas.drawCircle(center, radius, glowPaint);
 
-    // Gradient ring
     final ringPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4
@@ -171,7 +272,6 @@ class GradientRingPainter extends CustomPainter {
       ).createShader(Rect.fromCircle(center: center, radius: radius - 2));
     canvas.drawCircle(center, radius - 2, ringPaint);
 
-    // Inner black circle
     final innerPaint = Paint()
       ..color = Colors.black
       ..style = PaintingStyle.fill;
@@ -197,8 +297,10 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late AnimationController _radialController;
+  late AnimationController _scanController;
   late Animation<double> _radialAnimation;
   late Animation<double> _rotationAnimation;
+  late Animation<double> _scanAnimation;
 
   @override
   void initState() {
@@ -214,6 +316,12 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
     _rotationAnimation = Tween<double>(begin: 0.0, end: 0.125).animate(
       CurvedAnimation(parent: _radialController, curve: Curves.easeInOut),
     );
+
+    _scanController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+    _scanAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_scanController);
   }
 
   @override
@@ -221,6 +329,7 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
     _controller.dispose();
     _scrollController.dispose();
     _radialController.dispose();
+    _scanController.dispose();
     super.dispose();
   }
 
@@ -230,7 +339,6 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
     ref.read(htmlFloatingProvider.notifier).sendMessage(text);
     _controller.clear();
     
-    // Auto-scroll
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -249,7 +357,6 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
 
     if (!state.bubbleVisible) return const SizedBox.shrink();
 
-    // Update animation
     if (state.radialMenuOpen) {
       _radialController.forward();
     } else {
@@ -260,16 +367,176 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
 
     return Stack(
       children: [
-        // 1. FLOATING BUBBLE + RADIAL MENU
+        // 1. SCAN OVERLAY (Show scanning animation)
+        if (state.scanning) _buildScanningOverlay(),
+
+        // 2. SCAN TAGS (Show after scan completes)
+        if (state.scannerActive && !state.scanning && state.scanTags.isNotEmpty)
+          ..._buildScanTags(state.scanTags),
+
+        // 3. FLOATING BUBBLE + RADIAL MENU
         Positioned(
           left: state.bubblePosition.dx,
           top: state.bubblePosition.dy,
           child: _buildStreminiWrapper(notifier, screenSize, state),
         ),
 
-        // 2. CHATBOX
+        // 4. CHATBOX
         if (state.chatboxOpen) _buildChatbox(notifier, state),
       ],
+    );
+  }
+
+  // ========================================
+  // SCANNING OVERLAY
+  // ========================================
+  Widget _buildScanningOverlay() {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withOpacity(0.7),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A1A),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFF00D9FF), width: 2),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedBuilder(
+                  animation: _scanAnimation,
+                  builder: (context, child) {
+                    return Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Color.lerp(
+                            const Color(0xFF00D9FF),
+                            const Color(0xFFE040FB),
+                            _scanAnimation.value,
+                          )!,
+                          width: 4,
+                        ),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.radar,
+                          color: Color(0xFF00D9FF),
+                          size: 40,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Scanning Screen...',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'AI is analyzing content',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ========================================
+  // SCAN TAGS
+  // ========================================
+  List<Widget> _buildScanTags(List<ScanTag> tags) {
+    return tags.map((tag) {
+      return Positioned(
+        left: tag.position.dx,
+        top: tag.position.dy,
+        child: GestureDetector(
+          onTap: () {
+            _showTagDetails(tag);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: tag.color.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: tag.color.withOpacity(0.3),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  tag.tag == 'Safe' ? Icons.check_circle : Icons.warning,
+                  color: Colors.white,
+                  size: 16,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  tag.tag,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  void _showTagDetails(ScanTag tag) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(
+              tag.tag == 'Safe' ? Icons.check_circle : Icons.warning,
+              color: tag.color,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              tag.tag,
+              style: TextStyle(color: tag.color),
+            ),
+          ],
+        ),
+        content: Text(
+          tag.reason,
+          style: const TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -292,7 +559,6 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
         }
       },
       onPanEnd: (details) {
-        // Snap to edge
         final currentX = state.bubblePosition.dx;
         final snapX = currentX < screenSize.width / 2 
             ? 0.0 
@@ -305,11 +571,9 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Feature Buttons (Radial Menu)
             if (state.radialMenuOpen) 
               ..._buildFeatureButtons(notifier, screenSize, state),
 
-            // Logo (Center)
             GestureDetector(
               onTap: () => notifier.toggleRadialMenu(),
               child: RotationTransition(
@@ -323,9 +587,6 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
     );
   }
 
-  // ========================================
-  // LOGO WITH GRADIENT RING & GLOW
-  // ========================================
   Widget _buildLogo() {
     return Container(
       width: 70,
@@ -337,11 +598,6 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
             color: const Color(0xFF00AAFF).withOpacity(0.6),
             blurRadius: 15,
             spreadRadius: 2,
-          ),
-          BoxShadow(
-            color: const Color(0xFF00AAFF).withOpacity(0.3),
-            blurRadius: 25,
-            spreadRadius: 5,
           ),
         ],
       ),
@@ -384,7 +640,11 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
         'color': const Color(0xFF23A6E2),
         'onTap': () => notifier.openChatbox(),
       },
-      {'icon': Icons.search, 'color': const Color(0xFFE040FB), 'onTap': () {}},
+      {
+        'icon': Icons.radar,
+        'color': state.scannerActive ? const Color(0xFF00D9FF) : const Color(0xFFE040FB),
+        'onTap': () => notifier.toggleScanner(),
+      },
       {'icon': Icons.mic, 'color': const Color(0xFF0066FF), 'onTap': () {}},
     ];
 
@@ -470,15 +730,8 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
           ),
           child: Column(
             children: [
-              // Chat Header
               _buildChatHeader(notifier),
-
-              // Chat Messages
-              Expanded(
-                child: _buildMessages(state),
-              ),
-
-              // Chat Input
+              Expanded(child: _buildMessages(state)),
               _buildChatInput(),
             ],
           ),
@@ -487,9 +740,6 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
     );
   }
 
-  // ========================================
-  // CHAT HEADER
-  // ========================================
   Widget _buildChatHeader(HtmlFloatingNotifier notifier) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -502,9 +752,9 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
           Container(
             width: 30,
             height: 30,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const SweepGradient(
+              gradient: SweepGradient(
                 colors: [
                   Color(0xFF23A6E2),
                   Color(0xFFAA75F4),
@@ -512,12 +762,6 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
                   Color(0xFF23A6E2),
                 ],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF00AAFF).withOpacity(0.4),
-                  blurRadius: 8,
-                ),
-              ],
             ),
             child: const Center(
               child: Icon(Icons.smart_toy, color: Colors.white, size: 16),
@@ -544,9 +788,6 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
     );
   }
 
-  // ========================================
-  // CHAT MESSAGES
-  // ========================================
   Widget _buildMessages(HtmlFloatingState state) {
     return Container(
       color: Colors.black,
@@ -567,12 +808,12 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
                     padding: const EdgeInsets.all(8.0),
                     child: Row(
                       children: [
-                        SizedBox(
+                        const SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: const Color(0xFF23A6E2),
+                            color: Color(0xFF23A6E2),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -617,9 +858,6 @@ class _HtmlStyleFloatingChatState extends ConsumerState<HtmlStyleFloatingChat>
     );
   }
 
-  // ========================================
-  // CHAT INPUT
-  // ========================================
   Widget _buildChatInput() {
     return Container(
       padding: const EdgeInsets.all(10),
