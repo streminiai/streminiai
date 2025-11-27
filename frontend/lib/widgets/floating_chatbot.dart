@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/api_service.dart';
 
 // State provider for floating chatbot
-final floatingChatbotProvider = StateNotifierProvider<FloatingChatbotNotifier, FloatingChatbotState>(
-  (ref) => FloatingChatbotNotifier(),
+final floatingChatbotProvider = NotifierProvider<FloatingChatbotNotifier, FloatingChatbotState>(
+  FloatingChatbotNotifier.new,
 );
 
 class FloatingChatbotState {
@@ -50,8 +51,11 @@ class ChatMessage {
   });
 }
 
-class FloatingChatbotNotifier extends StateNotifier<FloatingChatbotState> {
-  FloatingChatbotNotifier() : super(FloatingChatbotState());
+class FloatingChatbotNotifier extends Notifier<FloatingChatbotState> {
+  @override
+  FloatingChatbotState build() {
+    return FloatingChatbotState();
+  }
 
   void show() {
     state = state.copyWith(isVisible: true);
@@ -308,7 +312,6 @@ class _FloatingChatbotState extends ConsumerState<FloatingChatbot> {
           IconButton(
             icon: const Icon(Icons.mic, color: Colors.blue, size: 20),
             onPressed: () {
-              // TODO: Implement voice input
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Voice input coming soon')),
               );
