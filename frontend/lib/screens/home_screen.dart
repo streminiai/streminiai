@@ -278,28 +278,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Floating Chat Button (WhatsApp style)
+                  // Floating Chat Button (HTML style bubble)
                   Container(
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF25D366).withOpacity(0.2),
+                      color: const Color(0xFF23A6E2).withOpacity(0.2),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: const Color(0xFF25D366),
+                        color: const Color(0xFF23A6E2),
                         width: 2,
                       ),
                     ),
                     child: IconButton(
                       icon: const Icon(
-                        Icons.chat_bubble_rounded,
+                        Icons.bubble_chart,
                         size: 18,
-                        color: Color(0xFF25D366),
+                        color: Color(0xFF23A6E2),
                       ),
                       padding: EdgeInsets.zero,
                       onPressed: () {
-                        // Show floating chat
-                        ref.read(webviewFloatingChatProvider.notifier).show();
+                        // Show HTML-style floating bubble
+                        ref.read(htmlFloatingProvider.notifier).showBubble();
                       },
                       tooltip: 'Floating Chat',
                     ),
@@ -335,7 +335,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ],
               ),
-              onTap: null, // Disable default tap since we have buttons
+              onTap: null,
             ),
 
             const SizedBox(height: 16),
@@ -440,11 +440,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               }),
               _buildDrawerItem(Icons.settings, 'Settings', () {
                 Navigator.pop(context);
-                // TODO: Navigate to settings
               }),
               _buildDrawerItem(Icons.help_outline, 'Contact Us', () {
                 Navigator.pop(context);
-                // TODO: Navigate to contact
               }),
             ],
           ),
