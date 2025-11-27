@@ -24,7 +24,6 @@ class MainActivity : FlutterActivity() {
     
     private var eventSink: EventChannel.EventSink? = null
 
-    // Broadcast receiver for floating chat events and messages from Flutter
     private val eventReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
@@ -35,22 +34,32 @@ class MainActivity : FlutterActivity() {
                     eventSink?.success(mapOf("action" to "close_floating_chat"))
                 }
                 ChatOverlayService.ACTION_OPEN_SCANNER -> {
-                    eventSink?.success(mapOf("action" to "open_scanner"))
+                    // Start scanner
+                    startScreenScan()
                 }
                 ChatOverlayService.ACTION_CLOSE_SCANNER -> {
-                    eventSink?.success(mapOf("action" to "close_scanner"))
+                    // Stop scanner
+                    stopScreenScan()
                 }
-                ScreenReaderService.ACTION_SCAN_COMPLETE -> {
-                    val scannedText = intent.getStringExtra(ScreenReaderService.EXTRA_SCANNED_TEXT)
-                    eventSink?.success(mapOf(
-                        "action" to "scan_complete",
-                        "text" to scannedText
-                    ))
+                ScreenScannerService.ACTION_SCAN_COMPLETE -> {
+                    val scannedText = intent.getStringExtra(ScreenScannerService.EXTRA_SCANNED_TEXT)
+                    val error = intent.getStringExtra("error")
+                    
+                    if (error != null) {
+                        eventSink?.success(mapOf(
+                            "action" to "scan_error",
+                            "error" to error
+                        ))
+                    } else {
+                        eventSink?.success(mapOf(
+                            "action" to "scan_complete",
+                            "text" to scannedText
+                        ))
+                    }
                 }
                 "com.example.stremini_chatbot.FLUTTER_MESSAGE" -> {
                     val message = intent.getStringExtra("message")
                     if (message != null) {
-                        // Send to backend API
                         sendMessageToAPI(message)
                     }
                 }
@@ -61,7 +70,6 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         
-        // Method channel for overlay controls
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName).setMethodCallHandler { call, result ->
             when (call.method) {
                 "hasOverlayPermission" -> {
@@ -81,7 +89,7 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
                 "hasAccessibilityPermission" -> {
-                    val has = ScreenReaderService.isRunning()
+                    val has = ScreenScannerService.isRunning()
                     result.success(has)
                 }
                 "requestAccessibilityPermission" -> {
@@ -91,10 +99,12 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
                 "startScreenScan" -> {
-                    val intent = Intent(this, ScreenReaderService::class.java)
-                    intent.action = ScreenReaderService.ACTION_START_SCAN
-                    startService(intent)
-                    result.success(true)
+                    if (ScreenScannerService.isRunning()) {
+                        startScreenScan()
+                        result.success(true)
+                    } else {
+                        result.error("NO_PERMISSION", "Accessibility service not enabled", null)
+                    }
                 }
                 "startOverlayService" -> {
                     val intent = Intent(this, ChatOverlayService::class.java)
@@ -114,7 +124,6 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        // Event channel for floating chat and scanner events
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, eventChannelName).setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
@@ -126,6 +135,18 @@ class MainActivity : FlutterActivity() {
                 }
             }
         )
+    }
+
+    private fun startScreenScan() {
+        val intent = Intent(this, ScreenScannerService::class.java)
+        intent.action = ScreenScannerService.ACTION_START_SCAN
+        startService(intent)
+    }
+
+    private fun stopScreenScan() {
+        val intent = Intent(this, ScreenScannerService::class.java)
+        intent.action = ScreenScannerService.ACTION_STOP_SCAN
+        startService(intent)
     }
 
     private fun sendMessageToAPI(userMessage: String) {
@@ -140,14 +161,12 @@ class MainActivity : FlutterActivity() {
                 connection.connectTimeout = 15000
                 connection.readTimeout = 15000
 
-                // Send request
                 val jsonBody = JSONObject().put("message", userMessage).toString()
                 connection.outputStream.use { os ->
                     val input = jsonBody.toByteArray(Charsets.UTF_8)
                     os.write(input, 0, input.size)
                 }
 
-                // Read response
                 if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
                     val jsonResponse = JSONObject(response)
@@ -155,12 +174,10 @@ class MainActivity : FlutterActivity() {
                                 jsonResponse.optString("response",
                                 jsonResponse.optString("message", "No response from AI")))
 
-                    // Send reply back to service
                     val intent = Intent(ChatOverlayService.ACTION_SEND_MESSAGE)
                     intent.putExtra(ChatOverlayService.EXTRA_MESSAGE, reply)
                     sendBroadcast(intent)
                 } else {
-                    // Error response
                     val intent = Intent(ChatOverlayService.ACTION_SEND_MESSAGE)
                     intent.putExtra(ChatOverlayService.EXTRA_MESSAGE, 
                         "❌ Server error: ${connection.responseCode}")
@@ -169,7 +186,6 @@ class MainActivity : FlutterActivity() {
 
                 connection.disconnect()
             } catch (e: Exception) {
-                // Network error
                 val intent = Intent(ChatOverlayService.ACTION_SEND_MESSAGE)
                 intent.putExtra(ChatOverlayService.EXTRA_MESSAGE, 
                     "⚠️ Network error: ${e.message}")
@@ -180,13 +196,12 @@ class MainActivity : FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Register broadcast receiver
         val filter = IntentFilter().apply {
             addAction(ChatOverlayService.ACTION_OPEN_FLOATING_CHAT)
             addAction(ChatOverlayService.ACTION_CLOSE_FLOATING_CHAT)
             addAction(ChatOverlayService.ACTION_OPEN_SCANNER)
             addAction(ChatOverlayService.ACTION_CLOSE_SCANNER)
-            addAction(ScreenReaderService.ACTION_SCAN_COMPLETE)
+            addAction(ScreenScannerService.ACTION_SCAN_COMPLETE)
             addAction("com.example.stremini_chatbot.FLUTTER_MESSAGE")
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
