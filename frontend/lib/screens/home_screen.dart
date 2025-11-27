@@ -299,7 +299,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       padding: EdgeInsets.zero,
                       onPressed: () {
                         // Show floating chat
-                        ref.read(enhancedFloatingChatProvider.notifier).show();
+                        ref.read(webviewFloatingChatProvider.notifier).show();
                       },
                       tooltip: 'Floating Chat',
                     ),
