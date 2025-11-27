@@ -16,6 +16,10 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.ImageView
+import android.widget.EditText
+import android.widget.TextView
+import android.widget.LinearLayout
+import android.widget.ScrollView
 import androidx.core.app.NotificationCompat
 import kotlin.math.cos
 import kotlin.math.sin
@@ -28,11 +32,18 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         const val ACTION_CLOSE_FLOATING_CHAT = "com.example.stremini_chatbot.CLOSE_FLOATING_CHAT"
         const val ACTION_OPEN_SCANNER = "com.example.stremini_chatbot.OPEN_SCANNER"
         const val ACTION_CLOSE_SCANNER = "com.example.stremini_chatbot.CLOSE_SCANNER"
+        const val ACTION_SEND_MESSAGE = "com.example.stremini_chatbot.SEND_MESSAGE"
+        const val EXTRA_MESSAGE = "message"
     }
 
     private lateinit var windowManager: WindowManager
     private lateinit var overlayView: View
     private lateinit var params: WindowManager.LayoutParams
+
+    // Floating Chatbot Window
+    private var floatingChatView: View? = null
+    private var floatingChatParams: WindowManager.LayoutParams? = null
+    private var isChatbotVisible = false
 
     private lateinit var bubbleIcon: ImageView
     private lateinit var menuItems: List<ImageView>
@@ -62,10 +73,16 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 ACTION_OPEN_FLOATING_CHAT -> {
-                    // Notify Flutter to show floating chat
+                    showFloatingChatbot()
                 }
                 ACTION_CLOSE_FLOATING_CHAT -> {
-                    // Notify Flutter to hide floating chat
+                    hideFloatingChatbot()
+                }
+                ACTION_SEND_MESSAGE -> {
+                    val message = intent.getStringExtra(EXTRA_MESSAGE)
+                    if (message != null) {
+                        addMessageToChatbot(message, isUser = false)
+                    }
                 }
                 ACTION_OPEN_SCANNER -> {
                     // Notify Flutter to show scanner
@@ -95,6 +112,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             addAction(ACTION_CLOSE_FLOATING_CHAT)
             addAction(ACTION_OPEN_SCANNER)
             addAction(ACTION_CLOSE_SCANNER)
+            addAction(ACTION_SEND_MESSAGE)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(controlReceiver, filter, RECEIVER_NOT_EXPORTED)
@@ -112,7 +130,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             overlayView.findViewById(R.id.btn_refresh),
             overlayView.findViewById(R.id.btn_settings),
             overlayView.findViewById(R.id.btn_ai),
-            overlayView.findViewById(R.id.btn_scanner),  // NEW
+            overlayView.findViewById(R.id.btn_scanner),
             overlayView.findViewById(R.id.btn_keyboard)
         )
 
@@ -138,7 +156,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         
         // Set click listeners for menu items
         menuItems[2].setOnClickListener { handleAIChat() }       // AI Chat
-        menuItems[3].setOnClickListener { handleScanner() }      // Scanner (NEW)
+        menuItems[3].setOnClickListener { handleScanner() }      // Scanner
         menuItems[4].setOnClickListener { handleVoiceCommand() } // Voice
         menuItems[1].setOnClickListener { handleSettings() }     // Settings
         menuItems[0].setOnClickListener { handleRefresh() }      // Refresh
@@ -150,13 +168,110 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         toggleFeature(menuItems[2].id)
         
         if (isFeatureActive(menuItems[2].id)) {
-            // Open floating mini chatbot
-            val intent = Intent(ACTION_OPEN_FLOATING_CHAT)
-            sendBroadcast(intent)
+            showFloatingChatbot()
         } else {
-            // Close floating chatbot
-            val intent = Intent(ACTION_CLOSE_FLOATING_CHAT)
-            sendBroadcast(intent)
+            hideFloatingChatbot()
+        }
+    }
+
+    private fun showFloatingChatbot() {
+        if (isChatbotVisible) return
+
+        // Create floating chatbot layout
+        floatingChatView = LayoutInflater.from(this).inflate(R.layout.floating_chatbot_layout, null)
+        
+        val typeParam = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        } else {
+            @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+        }
+
+        floatingChatParams = WindowManager.LayoutParams(
+            dpToPx(320f),
+            dpToPx(480f),
+            typeParam,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            PixelFormat.TRANSLUCENT
+        )
+        
+        floatingChatParams?.gravity = Gravity.BOTTOM or Gravity.END
+        floatingChatParams?.x = dpToPx(20f)
+        floatingChatParams?.y = dpToPx(100f)
+
+        setupFloatingChatListeners()
+        
+        windowManager.addView(floatingChatView, floatingChatParams)
+        isChatbotVisible = true
+
+        // Add welcome message
+        addMessageToChatbot("Hello! I'm Stremini AI. How can I help you?", isUser = false)
+    }
+
+    private fun setupFloatingChatListeners() {
+        floatingChatView?.let { view ->
+            // Close button
+            view.findViewById<ImageView>(R.id.btn_close_chat)?.setOnClickListener {
+                hideFloatingChatbot()
+            }
+
+            // Send button
+            view.findViewById<ImageView>(R.id.btn_send_message)?.setOnClickListener {
+                val input = view.findViewById<EditText>(R.id.et_chat_input)
+                val message = input?.text?.toString()?.trim()
+                
+                if (!message.isNullOrEmpty()) {
+                    addMessageToChatbot(message, isUser = true)
+                    input.text?.clear()
+                    
+                    // Send message to Flutter for API call
+                    val intent = Intent("com.example.stremini_chatbot.FLUTTER_MESSAGE")
+                    intent.putExtra("message", message)
+                    sendBroadcast(intent)
+                }
+            }
+
+            // Voice button
+            view.findViewById<ImageView>(R.id.btn_voice_input)?.setOnClickListener {
+                // TODO: Implement voice input
+            }
+
+            // Minimize button
+            view.findViewById<ImageView>(R.id.btn_minimize_chat)?.setOnClickListener {
+                hideFloatingChatbot()
+            }
+        }
+    }
+
+    private fun addMessageToChatbot(message: String, isUser: Boolean) {
+        floatingChatView?.let { view ->
+            val messagesContainer = view.findViewById<LinearLayout>(R.id.messages_container)
+            
+            // Create message view
+            val messageView = LayoutInflater.from(this).inflate(
+                if (isUser) R.layout.message_bubble_user else R.layout.message_bubble_bot,
+                messagesContainer,
+                false
+            )
+            
+            messageView.findViewById<TextView>(R.id.tv_message)?.text = message
+            messagesContainer?.addView(messageView)
+            
+            // Scroll to bottom
+            view.findViewById<ScrollView>(R.id.scroll_messages)?.post {
+                view.findViewById<ScrollView>(R.id.scroll_messages)?.fullScroll(View.FOCUS_DOWN)
+            }
+        }
+    }
+
+    private fun hideFloatingChatbot() {
+        if (!isChatbotVisible) return
+        
+        floatingChatView?.let { view ->
+            windowManager.removeView(view)
+            floatingChatView = null
+            floatingChatParams = null
+            isChatbotVisible = false
         }
     }
 
@@ -164,11 +279,9 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         toggleFeature(menuItems[3].id)
         
         if (isFeatureActive(menuItems[3].id)) {
-            // Open scanner overlay
             val intent = Intent(ACTION_OPEN_SCANNER)
             sendBroadcast(intent)
         } else {
-            // Close scanner overlay
             val intent = Intent(ACTION_CLOSE_SCANNER)
             sendBroadcast(intent)
         }
@@ -183,15 +296,13 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private fun handleRefresh() {
-        // Deactivate all features
         activeFeatures.clear()
         updateMenuItemsColor()
+        hideFloatingChatbot()
         
-        // Close floating chat if open
         val chatIntent = Intent(ACTION_CLOSE_FLOATING_CHAT)
         sendBroadcast(chatIntent)
         
-        // Close scanner if open
         val scannerIntent = Intent(ACTION_CLOSE_SCANNER)
         sendBroadcast(scannerIntent)
     }
@@ -212,10 +323,8 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private fun updateMenuItemsColor() {
         menuItems.forEach { item ->
             if (activeFeatures.contains(item.id)) {
-                // Feature is active - make it cyan
                 item.setColorFilter(android.graphics.Color.parseColor("#00D9FF"))
             } else {
-                // Feature is inactive - default color
                 when(item.id) {
                     R.id.btn_ai -> item.setColorFilter(android.graphics.Color.parseColor("#23A6E2"))
                     R.id.btn_scanner -> item.setColorFilter(android.graphics.Color.parseColor("#E040FB"))
@@ -388,6 +497,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(controlReceiver)
+        hideFloatingChatbot()
         if (::overlayView.isInitialized) windowManager.removeView(overlayView)
     }
 }
