@@ -1,3 +1,5 @@
+// File: frontend/lib/main.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -66,11 +68,16 @@ class _AppWrapperState extends ConsumerState<AppWrapper> {
         } else if (action == 'close_floating_chat') {
           // Hide floating chatbot
           ref.read(enhancedFloatingChatProvider.notifier).hide();
+        } else if (action == 'open_scanner') {
+          // TODO: Show scanner if needed
+        } else if (action == 'close_scanner') {
+          // TODO: Hide scanner if needed
         } else if (action == 'scan_complete') {
           // Process scan result
           final scannedText = event['text'] as String?;
           if (scannedText != null && scannedText.isNotEmpty) {
             // TODO: Handle scanned text
+            debugPrint('Scanned text: $scannedText');
           }
         }
       }
