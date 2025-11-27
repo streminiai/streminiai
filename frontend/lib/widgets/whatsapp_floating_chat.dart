@@ -1,63 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:math' as math;
 import '../services/api_service.dart';
 
 // ========================================
-// MESSAGE MODEL
+// MESSAGE MODEL FOR FLOATING CHAT
 // ========================================
-class FloatingChatMessage {
+class FloatingMessage {
   final String text;
   final bool isUser;
   final DateTime timestamp;
-  final String? id;
 
-  FloatingChatMessage({
+  FloatingMessage({
     required this.text,
     required this.isUser,
     required this.timestamp,
-    this.id,
   });
 }
 
 // ========================================
 // STATE MODEL
 // ========================================
-class EnhancedFloatingChatState {
+class WebViewFloatingChatState {
   final bool isVisible;
-  final bool isExpanded;
-  final bool isMinimized;
+  final bool showRadialMenu;
+  final bool showMiniChat;
   final Offset position;
-  final List<FloatingChatMessage> messages;
+  final List<FloatingMessage> messages;
   final bool isLoading;
-  final bool isDragging;
 
-  EnhancedFloatingChatState({
+  WebViewFloatingChatState({
     this.isVisible = false,
-    this.isExpanded = false,
-    this.isMinimized = false,
-    this.position = const Offset(20, 100),
+    this.showRadialMenu = false,
+    this.showMiniChat = false,
+    this.position = const Offset(100, 200),
     this.messages = const [],
     this.isLoading = false,
-    this.isDragging = false,
   });
 
-  EnhancedFloatingChatState copyWith({
+  WebViewFloatingChatState copyWith({
     bool? isVisible,
-    bool? isExpanded,
-    bool? isMinimized,
+    bool? showRadialMenu,
+    bool? showMiniChat,
     Offset? position,
-    List<FloatingChatMessage>? messages,
+    List<FloatingMessage>? messages,
     bool? isLoading,
-    bool? isDragging,
   }) {
-    return EnhancedFloatingChatState(
+    return WebViewFloatingChatState(
       isVisible: isVisible ?? this.isVisible,
-      isExpanded: isExpanded ?? this.isExpanded,
-      isMinimized: isMinimized ?? this.isMinimized,
+      showRadialMenu: showRadialMenu ?? this.showRadialMenu,
+      showMiniChat: showMiniChat ?? this.showMiniChat,
       position: position ?? this.position,
       messages: messages ?? this.messages,
       isLoading: isLoading ?? this.isLoading,
-      isDragging: isDragging ?? this.isDragging,
     );
   }
 }
@@ -65,73 +60,58 @@ class EnhancedFloatingChatState {
 // ========================================
 // STATE NOTIFIER
 // ========================================
-class EnhancedFloatingChatNotifier extends Notifier<EnhancedFloatingChatState> {
+class WebViewFloatingChatNotifier extends Notifier<WebViewFloatingChatState> {
   @override
-  EnhancedFloatingChatState build() {
-    return EnhancedFloatingChatState();
+  WebViewFloatingChatState build() {
+    return WebViewFloatingChatState();
   }
 
   void show() {
-    state = state.copyWith(isVisible: true, isExpanded: false);
+    state = state.copyWith(isVisible: true);
   }
 
   void hide() {
-    state = EnhancedFloatingChatState();
+    state = WebViewFloatingChatState();
   }
 
-  void toggleExpand() {
+  void toggleRadialMenu() {
     state = state.copyWith(
-      isExpanded: !state.isExpanded,
-      isMinimized: false,
+      showRadialMenu: !state.showRadialMenu,
+      showMiniChat: false,
     );
   }
 
-  void minimize() {
+  void openMiniChat() {
     state = state.copyWith(
-      isExpanded: false,
-      isMinimized: true,
+      showMiniChat: true,
+      showRadialMenu: false,
     );
   }
 
-  void maximize() {
-    state = state.copyWith(
-      isExpanded: true,
-      isMinimized: false,
-    );
+  void closeMiniChat() {
+    state = state.copyWith(showMiniChat: false);
   }
 
   void updatePosition(Offset newPosition) {
     state = state.copyWith(position: newPosition);
   }
 
-  void setDragging(bool dragging) {
-    state = state.copyWith(isDragging: dragging);
-  }
-
   void addMessage(String text, bool isUser) {
-    final newMessage = FloatingChatMessage(
+    final newMessage = FloatingMessage(
       text: text,
       isUser: isUser,
       timestamp: DateTime.now(),
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
     );
-    state = state.copyWith(
-      messages: [...state.messages, newMessage],
-    );
+    state = state.copyWith(messages: [...state.messages, newMessage]);
   }
 
   void setLoading(bool loading) {
     state = state.copyWith(isLoading: loading);
   }
 
-  void clearMessages() {
-    state = state.copyWith(messages: []);
-  }
-
   Future<void> sendMessage(String text) async {
     if (text.trim().isEmpty) return;
 
-    // Add user message
     addMessage(text, true);
     setLoading(true);
 
@@ -140,7 +120,7 @@ class EnhancedFloatingChatNotifier extends Notifier<EnhancedFloatingChatState> {
       final response = await apiService.sendMessage(text);
       addMessage(response, false);
     } catch (e) {
-      addMessage("Sorry, I couldn't process your message. Please try again.", false);
+      addMessage("Sorry, I couldn't process your message.", false);
     } finally {
       setLoading(false);
     }
@@ -150,36 +130,36 @@ class EnhancedFloatingChatNotifier extends Notifier<EnhancedFloatingChatState> {
 // ========================================
 // PROVIDER
 // ========================================
-final enhancedFloatingChatProvider = NotifierProvider<EnhancedFloatingChatNotifier, EnhancedFloatingChatState>(
-  EnhancedFloatingChatNotifier.new,
+final webViewFloatingChatProvider = NotifierProvider<WebViewFloatingChatNotifier, WebViewFloatingChatState>(
+  WebViewFloatingChatNotifier.new,
 );
 
 // ========================================
-// MAIN WIDGET
+// MAIN FLOATING WIDGET (FROM HTML)
 // ========================================
-class WhatsAppStyleFloatingChat extends ConsumerStatefulWidget {
-  const WhatsAppStyleFloatingChat({super.key});
+class WebViewStyleFloatingChat extends ConsumerStatefulWidget {
+  const WebViewStyleFloatingChat({super.key});
 
   @override
-  ConsumerState<WhatsAppStyleFloatingChat> createState() => _WhatsAppStyleFloatingChatState();
+  ConsumerState<WebViewStyleFloatingChat> createState() => _WebViewStyleFloatingChatState();
 }
 
-class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatingChat>
-    with SingleTickerProviderStateMixin {
+class _WebViewStyleFloatingChatState extends ConsumerState<WebViewStyleFloatingChat>
+    with TickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
+  late AnimationController _radialController;
+  late Animation<double> _radialAnimation;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
+    _radialController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    _scaleAnimation = CurvedAnimation(
-      parent: _animationController,
+    _radialAnimation = CurvedAnimation(
+      parent: _radialController,
       curve: Curves.easeOutBack,
     );
   }
@@ -188,485 +168,386 @@ class _WhatsAppStyleFloatingChatState extends ConsumerState<WhatsAppStyleFloatin
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
-    _animationController.dispose();
+    _radialController.dispose();
     super.dispose();
-  }
-
-  void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
   }
 
   void _sendMessage() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-
-    ref.read(enhancedFloatingChatProvider.notifier).sendMessage(text);
+    ref.read(webViewFloatingChatProvider.notifier).sendMessage(text);
     _controller.clear();
-    _scrollToBottom();
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(enhancedFloatingChatProvider);
-    final notifier = ref.read(enhancedFloatingChatProvider.notifier);
+    final state = ref.watch(webViewFloatingChatProvider);
+    final notifier = ref.read(webViewFloatingChatProvider.notifier);
 
     if (!state.isVisible) return const SizedBox.shrink();
 
-    // Trigger animation when expanded
-    if (state.isExpanded) {
-      _animationController.forward();
+    // Update animation
+    if (state.showRadialMenu) {
+      _radialController.forward();
     } else {
-      _animationController.reverse();
+      _radialController.reverse();
     }
-
-    // Auto-scroll when messages change
-    ref.listen<EnhancedFloatingChatState>(enhancedFloatingChatProvider, (previous, next) {
-      if (next.messages.length > (previous?.messages.length ?? 0)) {
-        _scrollToBottom();
-      }
-    });
 
     final screenSize = MediaQuery.of(context).size;
 
     return Stack(
       children: [
-        // Backdrop when expanded
-        if (state.isExpanded)
-          GestureDetector(
-            onTap: () => notifier.minimize(),
-            child: Container(
-              color: Colors.black.withOpacity(0.5),
-            ),
-          ),
-
-        // Floating Icon or Expanded Chat
+        // Floating Icon with Radial Menu
         Positioned(
-          left: state.isExpanded ? 0 : state.position.dx,
-          top: state.isExpanded ? 0 : state.position.dy,
-          right: state.isExpanded ? 0 : null,
-          bottom: state.isExpanded ? 0 : null,
-          child: state.isExpanded
-              ? _buildExpandedChat(notifier)
-              : _buildFloatingIcon(notifier, screenSize),
+          left: state.position.dx,
+          top: state.position.dy,
+          child: _buildFloatingBubble(notifier, screenSize, state),
         ),
+
+        // Mini Chatbox (Like HTML version)
+        if (state.showMiniChat) _buildMiniChatbox(notifier),
       ],
     );
   }
 
   // ========================================
-  // FLOATING ICON
+  // FLOATING BUBBLE WITH RADIAL MENU
   // ========================================
-  Widget _buildFloatingIcon(EnhancedFloatingChatNotifier notifier, Size screenSize) {
-    final state = ref.watch(enhancedFloatingChatProvider);
-    
+  Widget _buildFloatingBubble(
+    WebViewFloatingChatNotifier notifier,
+    Size screenSize,
+    WebViewFloatingChatState state,
+  ) {
     return GestureDetector(
-      onPanStart: (_) => notifier.setDragging(true),
       onPanUpdate: (details) {
-        final newPosition = Offset(
-          (state.position.dx + details.delta.dx).clamp(0.0, screenSize.width - 60),
-          (state.position.dy + details.delta.dy).clamp(0.0, screenSize.height - 60),
-        );
-        notifier.updatePosition(newPosition);
+        if (!state.showRadialMenu) {
+          final newX = (state.position.dx + details.delta.dx)
+              .clamp(0.0, screenSize.width - 160);
+          final newY = (state.position.dy + details.delta.dy)
+              .clamp(0.0, screenSize.height - 160);
+          notifier.updatePosition(Offset(newX, newY));
+        }
       },
       onPanEnd: (details) {
-        notifier.setDragging(false);
-        // Snap to nearest edge
+        // Snap to edge
         final currentX = state.position.dx;
-        final snapX = currentX < screenSize.width / 2 ? 20.0 : screenSize.width - 80;
+        final snapX = currentX < screenSize.width / 2 ? 0.0 : screenSize.width - 160;
         notifier.updatePosition(Offset(snapX, state.position.dy));
       },
-      onTap: () => notifier.toggleExpand(),
-      child: Container(
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const SweepGradient(
-            colors: [Color(0xFF25D366), Color(0xFF128C7E), Color(0xFF075E54)],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF25D366).withOpacity(0.4),
-              blurRadius: 12,
-              spreadRadius: 2,
-            ),
-          ],
-        ),
+      child: SizedBox(
+        width: 160,
+        height: 160,
         child: Stack(
+          alignment: Alignment.center,
           children: [
-            const Center(
-              child: Icon(
-                Icons.chat_bubble_rounded,
-                color: Colors.white,
-                size: 28,
-              ),
-            ),
-            // Unread badge
-            if (state.messages.isNotEmpty)
-              Positioned(
-                top: 4,
-                right: 4,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  constraints: const BoxConstraints(
-                    minWidth: 20,
-                    minHeight: 20,
+            // Radial Menu Items
+            if (state.showRadialMenu) ..._buildRadialMenuItems(notifier, screenSize, state),
+
+            // Main Logo Button
+            GestureDetector(
+              onTap: () => notifier.toggleRadialMenu(),
+              child: Container(
+                width: 55,
+                height: 55,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black,
+                  border: Border.all(
+                    width: 3,
+                    color: const Color(0xFF2979FF),
                   ),
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${state.messages.length > 9 ? '9+' : state.messages.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF00AAFF).withOpacity(0.6),
+                      blurRadius: 15,
+                      spreadRadius: 2,
                     ),
-                  ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.chat,
+                  color: Colors.white,
+                  size: 28,
                 ),
               ),
+            ),
           ],
         ),
       ),
     );
   }
 
+  List<Widget> _buildRadialMenuItems(
+    WebViewFloatingChatNotifier notifier,
+    Size screenSize,
+    WebViewFloatingChatState state,
+  ) {
+    const double radius = 70.0;
+    final isOnRightSide = (state.position.dx + 80) > (screenSize.width / 2);
+
+    final List<Map<String, dynamic>> items = [
+      {
+        'icon': Icons.message,
+        'color': const Color(0xFF448AFF),
+        'onTap': () {},
+      },
+      {
+        'icon': Icons.settings,
+        'color': const Color(0xFF448AFF),
+        'onTap': () {},
+      },
+      {
+        'icon': Icons.chat_bubble,
+        'color': const Color(0xFF23A6E2),
+        'onTap': () => notifier.openMiniChat(),
+      },
+      {
+        'icon': Icons.mic,
+        'color': const Color(0xFF0066FF),
+        'onTap': () {},
+      },
+      {
+        'icon': Icons.refresh,
+        'color': const Color(0xFF23A6E2),
+        'onTap': () => notifier.toggleRadialMenu(),
+      },
+    ];
+
+    final double startAngle = isOnRightSide ? 90.0 : 90.0;
+    final double endAngle = isOnRightSide ? 270.0 : -90.0;
+    final double step = (endAngle - startAngle) / (items.length - 1);
+
+    return List.generate(items.length, (index) {
+      final angle = startAngle + (index * step);
+      final rad = angle * (math.pi / 180.0);
+      final x = radius * math.cos(rad);
+      final y = radius * math.sin(rad);
+
+      return AnimatedBuilder(
+        animation: _radialAnimation,
+        builder: (_, __) {
+          return Transform.translate(
+            offset: Offset(
+              x * _radialAnimation.value,
+              -y * _radialAnimation.value,
+            ),
+            child: Opacity(
+              opacity: _radialAnimation.value.clamp(0.0, 1.0),
+              child: GestureDetector(
+                onTap: items[index]['onTap'],
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF1A1A1A),
+                    border: Border.all(
+                      color: items[index]['color'],
+                      width: 2,
+                    ),
+                  ),
+                  child: Icon(
+                    items[index]['icon'],
+                    color: items[index]['color'],
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    });
+  }
+
   // ========================================
-  // EXPANDED CHAT
+  // MINI CHATBOX (EXACT HTML STYLE)
   // ========================================
-  Widget _buildExpandedChat(EnhancedFloatingChatNotifier notifier) {
-    return ScaleTransition(
-      scale: _scaleAnimation,
+  Widget _buildMiniChatbox(WebViewFloatingChatNotifier notifier) {
+    final state = ref.watch(webViewFloatingChatProvider);
+
+    return Positioned(
+      bottom: 100,
+      right: 20,
       child: Material(
         color: Colors.transparent,
         child: Container(
-          margin: const EdgeInsets.all(16),
+          width: 320,
+          height: 480,
           decoration: BoxDecoration(
-            color: const Color(0xFF0B141A),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 20,
-                spreadRadius: 5,
-              ),
-            ],
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFF222222)),
           ),
           child: Column(
             children: [
               // Header
-              _buildChatHeader(notifier),
-              
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF111111),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: SweepGradient(
+                          colors: [
+                            Color(0xFF23A6E2),
+                            Color(0xFFAA75F4),
+                            Color(0xFF0066FF),
+                          ],
+                        ),
+                      ),
+                      child: const Icon(Icons.smart_toy, color: Colors.white, size: 16),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Stremini AI',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white, size: 18),
+                      onPressed: () => notifier.closeMiniChat(),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+
               // Messages
               Expanded(
-                child: _buildMessagesList(),
+                child: Container(
+                  color: Colors.black,
+                  child: state.messages.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'Start chatting...',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.all(10),
+                          itemCount: state.messages.length + (state.isLoading ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index == state.messages.length && state.isLoading) {
+                              return const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFF23A6E2),
+                                      ),
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text('...', style: TextStyle(color: Colors.white)),
+                                  ],
+                                ),
+                              );
+                            }
+
+                            final message = state.messages[index];
+                            return Align(
+                              alignment: message.isUser
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                constraints: const BoxConstraints(maxWidth: 240),
+                                decoration: BoxDecoration(
+                                  color: message.isUser
+                                      ? const Color(0xFF007BFF)
+                                      : const Color(0xFF1A1A1A),
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                child: Text(
+                                  message.text,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
               ),
-              
-              // Input
-              _buildChatInput(),
+
+              // Input Area
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF111111),
+                  border: Border(
+                    top: BorderSide(color: Color(0xFF222222)),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: TextField(
+                          controller: _controller,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: const InputDecoration(
+                            hintText: 'Ask me anything...',
+                            hintStyle: TextStyle(color: Colors.grey),
+                            border: InputBorder.none,
+                          ),
+                          onSubmitted: (_) => _sendMessage(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: _sendMessage,
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFF007BFF),
+                        ),
+                        child: const Icon(
+                          Icons.send,
+                          color: Colors.white,
+                          size: 14,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.mic, color: Colors.white, size: 24),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  // ========================================
-  // CHAT HEADER
-  // ========================================
-  Widget _buildChatHeader(EnhancedFloatingChatNotifier notifier) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1F2C34),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: SweepGradient(
-                  colors: [Color(0xFF25D366), Color(0xFF128C7E)],
-                ),
-              ),
-              child: const Icon(Icons.smart_toy, color: Colors.white, size: 22),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Stremini AI',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    'Online',
-                    style: TextStyle(
-                      color: Color(0xFF25D366),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.white70),
-              onPressed: () => notifier.clearMessages(),
-            ),
-            IconButton(
-              icon: const Icon(Icons.close, color: Colors.white70),
-              onPressed: () => notifier.hide(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ========================================
-  // MESSAGES LIST
-  // ========================================
-  Widget _buildMessagesList() {
-    final state = ref.watch(enhancedFloatingChatProvider);
-
-    if (state.messages.isEmpty && !state.isLoading) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.chat_bubble_outline,
-              size: 64,
-              color: Colors.white.withOpacity(0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Start a conversation',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      color: const Color(0xFF0B141A),
-      child: ListView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.all(16),
-        itemCount: state.messages.length + (state.isLoading ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index == state.messages.length && state.isLoading) {
-            return _buildTypingIndicator();
-          }
-
-          final message = state.messages[index];
-          return _buildMessageBubble(message);
-        },
-      ),
-    );
-  }
-
-  // ========================================
-  // MESSAGE BUBBLE
-  // ========================================
-  Widget _buildMessageBubble(FloatingChatMessage message) {
-    return Align(
-      alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.65,
-        ),
-        child: Column(
-          crossAxisAlignment:
-              message.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: message.isUser
-                    ? const Color(0xFF005C4B)
-                    : const Color(0xFF1F2C34),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(12),
-                  topRight: const Radius.circular(12),
-                  bottomLeft: message.isUser
-                      ? const Radius.circular(12)
-                      : const Radius.circular(0),
-                  bottomRight: message.isUser
-                      ? const Radius.circular(0)
-                      : const Radius.circular(12),
-                ),
-              ),
-              child: Text(
-                message.text,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  height: 1.4,
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                _formatTime(message.timestamp),
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
-                  fontSize: 11,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ========================================
-  // TYPING INDICATOR
-  // ========================================
-  Widget _buildTypingIndicator() {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: const BoxDecoration(
-          color: Color(0xFF1F2C34),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(12),
-            topRight: Radius.circular(12),
-            bottomRight: Radius.circular(12),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildDot(0),
-            const SizedBox(width: 4),
-            _buildDot(1),
-            const SizedBox(width: 4),
-            _buildDot(2),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDot(int index) {
-    return TweenAnimationBuilder<double>(
-      key: ValueKey(index),
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: Duration(milliseconds: 600 + (index * 100)),
-      builder: (context, value, child) {
-        return Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: const Color(0xFF25D366).withOpacity(0.3 + (value * 0.7)),
-            shape: BoxShape.circle,
-          ),
-        );
-      },
-      onEnd: () {
-        // Restart animation
-        setState(() {});
-      },
-    );
-  }
-
-  // ========================================
-  // CHAT INPUT
-  // ========================================
-  Widget _buildChatInput() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1F2C34),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: [
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2A3942),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: TextField(
-                  controller: _controller,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    hintText: 'Type a message',
-                    hintStyle: TextStyle(color: Colors.white54),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(vertical: 10),
-                  ),
-                  onSubmitted: (_) => _sendMessage(),
-                  maxLines: null,
-                  textInputAction: TextInputAction.send,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: _sendMessage,
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF25D366),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.send_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ========================================
-  // HELPER METHODS
-  // ========================================
-  String _formatTime(DateTime timestamp) {
-    final hour = timestamp.hour.toString().padLeft(2, '0');
-    final minute = timestamp.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
   }
 }
