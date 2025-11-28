@@ -60,7 +60,6 @@ class _AppWrapperState extends ConsumerState<AppWrapper> {
         final action = event['action'] as String?;
         
         if (action == 'scan_complete') {
-          // Process scan result if needed
           final scannedText = event['text'] as String?;
           if (scannedText != null && scannedText.isNotEmpty) {
             debugPrint('Scanned text: $scannedText');
