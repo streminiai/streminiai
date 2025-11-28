@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
-import 'chat_screen.dart';
 
 // Bubble state provider
 final bubbleActiveProvider = StateProvider.autoDispose<bool>((ref) => false);
@@ -68,6 +67,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await _overlayChannel.invokeMethod('requestAccessibilityPermission');
       await Future.delayed(const Duration(seconds: 1));
       await _checkPermissions();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Please enable "Stremini Screen Scanner" in Accessibility settings',
+              style: TextStyle(fontSize: 14),
+            ),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -83,9 +94,54 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
 
+    if (!_hasAccessibilityPermission && value) {
+      final result = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Accessibility Permission Required',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: const Text(
+            'The Screen Scanner feature requires Accessibility permission to analyze screen content and detect scams.\n\nWould you like to enable it now?',
+            style: TextStyle(color: Colors.grey),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Skip'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context, true);
+                _requestAccessibilityPermission();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF23A6E2),
+              ),
+              child: const Text('Enable'),
+            ),
+          ],
+        ),
+      );
+      
+      if (result != true) {
+        return;
+      }
+    }
+
     try {
       if (value) {
         await _overlayChannel.invokeMethod('startOverlayService');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Floating bubble activated! Tap to access features.'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
       } else {
         await _overlayChannel.invokeMethod('stopOverlayService');
       }
@@ -265,15 +321,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             
             const SizedBox(height: 16),
 
-            // Smart Chatbot Card - Controls Native Bubble
+            // Smart Chatbot Card
             _buildFeatureCard(
               title: 'Smart Chatbot',
-              description: 'Floating AI assistant with chat & screen analyzer. Works over all apps!',
+              description: 'HTML-style floating AI assistant with chat & screen analyzer. Works over all apps!',
               icon: Icons.chat_bubble_outline,
               iconColor: const Color(0xFF23A6E2),
               status: bubbleActive ? 'Active' : 'Inactive',
               statusColor: bubbleActive ? Colors.green : Colors.grey,
-              badges: const ['Floating Chat', 'Screen Scanner', 'System-Wide'],
+              badges: const ['Floating Chat', 'Screen Scanner', 'System-Wide', 'HTML Style'],
               trailing: Switch(
                 value: bubbleActive,
                 onChanged: _toggleBubble,
@@ -292,19 +348,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFF00D9FF).withOpacity(0.3)),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline, color: Color(0xFF00D9FF), size: 24),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'When enabled, a floating bubble appears. Tap it to access Chat and Screen Scanner features over any app!',
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 13,
+                  Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: Color(0xFF00D9FF), size: 24),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'How to use:',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
+                  const SizedBox(height: 12),
+                  _buildInfoStep('1', 'Tap the floating bubble to open radial menu'),
+                  _buildInfoStep('2', 'Select Chat icon to start conversation'),
+                  _buildInfoStep('3', 'Select Scanner icon to analyze screen for scams'),
+                  _buildInfoStep('4', 'Tags will appear near suspicious content'),
+                  _buildInfoStep('5', 'Tap scanner again to hide tags'),
                 ],
               ),
             ),
@@ -314,7 +382,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             // Permission Status
             if (!_hasOverlayPermission || !_hasAccessibilityPermission) ...[
               const Text(
-                'Permissions',
+                'Required Permissions',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -335,7 +403,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               if (!_hasAccessibilityPermission)
                 _buildPermissionCard(
                   'Accessibility Permission',
-                  'Required for screen scanner to read screen content',
+                  'Required for screen scanner to read screen content and detect scams',
                   Icons.accessibility_new,
                   Colors.purple,
                   _requestAccessibilityPermission,
@@ -343,6 +411,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildInfoStep(String number, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: const Color(0xFF00D9FF).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF00D9FF)),
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: const TextStyle(
+                  color: Color(0xFF00D9FF),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -356,7 +464,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Search Bar
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
@@ -382,7 +489,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               
               const SizedBox(height: 40),
               
-              // Menu Items
               _buildDrawerItem(Icons.home, 'Home', () {
                 Navigator.pop(context);
               }),
