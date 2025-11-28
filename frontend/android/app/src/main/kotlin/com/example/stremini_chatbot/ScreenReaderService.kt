@@ -112,42 +112,39 @@ class ScreenReaderService : AccessibilityService() {
                     return@launch
                 }
                 
-                Log.d(TAG, "✅ Got root node, extracting elements...")
+                Log.d(TAG, "✅ Got root node, extracting text...")
                 
-                // Extract screen elements
-                val elements = extractScreenElements(rootNode)
+                // Extract ALL text from screen
+                val screenText = extractAllText(rootNode)
                 rootNode.recycle()
                 
-                Log.d(TAG, "📋 Extracted ${elements.size} elements")
+                Log.d(TAG, "📋 Extracted ${screenText.length} characters of text")
                 
-                if (elements.isEmpty()) {
-                    showError("No content found on screen to analyze")
+                if (screenText.isEmpty()) {
+                    showError("No text found on screen to analyze")
                     return@launch
                 }
                 
-                // Log first few elements for debugging
-                elements.take(3).forEach { elem ->
-                    Log.d(TAG, "Element: type=${elem.type}, text=${elem.text?.take(50)}")
-                }
+                Log.d(TAG, "Text preview: ${screenText.take(200)}...")
                 
-                // Send to backend for analysis
+                // Send to simplified backend endpoint
                 Log.d(TAG, "🌐 Sending to backend for analysis...")
-                val result = analyzeScreenElements(elements)
+                val result = analyzeScreenContent(screenText)
                 
-                Log.d(TAG, "✅ Analysis complete: ${result.elements.size} tagged elements")
+                Log.d(TAG, "✅ Analysis complete")
                 
                 // Hide scanning animation
                 hideScanningAnimation()
                 
-                // Show tags on screen
-                displayTags(result)
+                // Show results as tags
+                displayResultTags(result)
                 
                 isScanning = false
                 tagsVisible = true
                 
                 // Broadcast completion
                 val completeIntent = Intent(ACTION_SCAN_COMPLETE)
-                completeIntent.putExtra(EXTRA_SCANNED_TEXT, "Scan complete: ${result.elements.size} elements tagged")
+                completeIntent.putExtra(EXTRA_SCANNED_TEXT, "Scan complete")
                 sendBroadcast(completeIntent)
                 
             } catch (e: Exception) {
@@ -160,145 +157,54 @@ class ScreenReaderService : AccessibilityService() {
     }
 
     // ========================================
-    // EXTRACT SCREEN ELEMENTS
+    // EXTRACT ALL TEXT FROM SCREEN
     // ========================================
-    data class ScreenElement(
-        val id: String,
-        val type: String,
-        val text: String?,
-        val bounds: Rect,
-        val url: String? = null,
-        val metadata: Map<String, String>? = null
-    )
-
-    private fun extractScreenElements(rootNode: AccessibilityNodeInfo): List<ScreenElement> {
-        val elements = mutableListOf<ScreenElement>()
-        traverseNode(rootNode, elements, 0)
-        Log.d(TAG, "Total elements found: ${elements.size}")
-        return elements.take(50) // Limit to 50 elements
+    private fun extractAllText(rootNode: AccessibilityNodeInfo): String {
+        val textBuilder = StringBuilder()
+        traverseForText(rootNode, textBuilder)
+        return textBuilder.toString().trim()
     }
 
-    private fun traverseNode(
-        node: AccessibilityNodeInfo,
-        elements: MutableList<ScreenElement>,
-        depth: Int
-    ) {
-        if (depth > 15) return
-        
-        val bounds = Rect()
-        node.getBoundsInScreen(bounds)
-        
-        // Skip if bounds are too small
-        if (bounds.width() < 20 || bounds.height() < 20) {
-            for (i in 0 until node.childCount) {
-                node.getChild(i)?.let { 
-                    traverseNode(it, elements, depth + 1)
-                    it.recycle()
-                }
-            }
-            return
-        }
-        
+    private fun traverseForText(node: AccessibilityNodeInfo, textBuilder: StringBuilder) {
+        // Get text from current node
         val text = node.text?.toString() ?: node.contentDescription?.toString()
-        val className = node.className?.toString() ?: ""
-        
-        // Determine element type
-        val type = when {
-            className.contains("Button") -> "button"
-            className.contains("EditText") -> "input"
-            className.contains("TextView") && text != null -> "text"
-            node.isClickable && text != null -> "link"
-            text != null && text.length > 10 -> "message"
-            else -> "unknown"
-        }
-        
-        // Only add elements with meaningful text
-        if (!text.isNullOrBlank() && text.length >= 3) {
-            val metadata = mutableMapOf<String, String>()
-            node.packageName?.toString()?.let { metadata["appName"] = it }
-            
-            var url: String? = null
-            if (text.contains("http://") || text.contains("https://")) {
-                url = extractUrl(text)
-            }
-            
-            elements.add(
-                ScreenElement(
-                    id = "elem_${elements.size}_${System.currentTimeMillis()}",
-                    type = type,
-                    text = text,
-                    bounds = bounds,
-                    url = url,
-                    metadata = metadata.ifEmpty { null }
-                )
-            )
+        if (!text.isNullOrBlank()) {
+            textBuilder.append(text).append(" ")
         }
         
         // Traverse children
         for (i in 0 until node.childCount) {
             node.getChild(i)?.let { 
-                traverseNode(it, elements, depth + 1)
+                traverseForText(it, textBuilder)
                 it.recycle()
             }
         }
     }
 
-    private fun extractUrl(text: String): String? {
-        val urlRegex = "(https?://[^\\s]+)".toRegex()
-        return urlRegex.find(text)?.value
-    }
-
     // ========================================
-    // ANALYZE SCREEN ELEMENTS (API CALL)
+    // ANALYZE USING SIMPLER ENDPOINT
     // ========================================
-    data class ElementAnalysis(
-        val id: String,
-        val bounds: Rect,
-        val tag: String,
-        val tone: String,
-        val emotion: String,
-        val riskScore: Int,
-        val reason: String
+    data class ScanResult(
+        val isSafe: Boolean,
+        val riskLevel: String,
+        val tags: List<String>,
+        val analysis: String
     )
 
-    data class AnalysisResult(
-        val elements: List<ElementAnalysis>,
-        val overallSafety: String,
-        val summary: String
-    )
-
-    private suspend fun analyzeScreenElements(elements: List<ScreenElement>): AnalysisResult = withContext(Dispatchers.IO) {
+    private suspend fun analyzeScreenContent(content: String): ScanResult = withContext(Dispatchers.IO) {
         Log.d(TAG, "🔄 Building API request...")
         
         val requestJson = JSONObject().apply {
-            put("screenElements", JSONArray().apply {
-                elements.forEach { element ->
-                    put(JSONObject().apply {
-                        put("id", element.id)
-                        put("type", element.type)
-                        put("text", element.text)
-                        put("bounds", JSONObject().apply {
-                            put("x", element.bounds.left)
-                            put("y", element.bounds.top)
-                            put("width", element.bounds.width())
-                            put("height", element.bounds.height())
-                        })
-                        element.url?.let { put("url", it) }
-                        element.metadata?.let { put("metadata", JSONObject(it)) }
-                    })
-                }
-            })
-            put("sessionId", "session_${System.currentTimeMillis()}")
+            put("content", content)
         }
 
         val requestBody = requestJson.toString()
             .toRequestBody("application/json".toMediaType())
 
-        Log.d(TAG, "📤 Sending request to backend...")
-        Log.d(TAG, "Request body preview: ${requestJson.toString().take(200)}...")
+        Log.d(TAG, "📤 Sending request to /security/scan-content...")
 
         val request = Request.Builder()
-            .url("https://ai-keyboard-backend.vishwajeetadkine705.workers.dev/security/analyze-screen")
+            .url("https://ai-keyboard-backend.vishwajeetadkine705.workers.dev/security/scan-content")
             .post(requestBody)
             .build()
 
@@ -307,7 +213,14 @@ class ScreenReaderService : AccessibilityService() {
         if (!response.isSuccessful) {
             val errorBody = response.body?.string()
             Log.e(TAG, "❌ API Error: ${response.code}, Body: $errorBody")
-            throw IOException("API Error: ${response.code}")
+            
+            // Return a mock/fallback result for now
+            return@withContext ScanResult(
+                isSafe = false,
+                riskLevel = "warning",
+                tags = listOf("Unable to analyze", "API Error ${response.code}"),
+                analysis = "Could not connect to security service. Error: ${response.code}"
+            )
         }
 
         val responseBody = response.body?.string() 
@@ -317,49 +230,24 @@ class ScreenReaderService : AccessibilityService() {
 
         val json = JSONObject(responseBody)
 
-        if (!json.optBoolean("success", false)) {
-            val error = json.optString("error", "Unknown error")
-            Log.e(TAG, "❌ Analysis failed: $error")
-            throw IOException("Analysis failed: $error")
+        // Parse response
+        val isSafe = json.optBoolean("isSafe", true)
+        val riskLevel = json.optString("riskLevel", "safe")
+        val analysis = json.optString("analysis", "Content analyzed")
+        
+        val tagsArray = json.optJSONArray("tags") ?: JSONArray()
+        val tags = mutableListOf<String>()
+        for (i in 0 until tagsArray.length()) {
+            tags.add(tagsArray.getString(i))
         }
 
-        // Parse elements
-        val analyzedElements = mutableListOf<ElementAnalysis>()
-        val elementsArray = json.getJSONArray("elements")
+        Log.d(TAG, "✅ Parsed result: isSafe=$isSafe, tags=${tags.size}")
 
-        Log.d(TAG, "Parsing ${elementsArray.length()} analyzed elements...")
-
-        for (i in 0 until elementsArray.length()) {
-            val elem = elementsArray.getJSONObject(i)
-            val analysis = elem.getJSONObject("analysis")
-            val boundsObj = elem.getJSONObject("bounds")
-
-            analyzedElements.add(
-                ElementAnalysis(
-                    id = elem.getString("id"),
-                    bounds = Rect(
-                        boundsObj.getInt("x"),
-                        boundsObj.getInt("y"),
-                        boundsObj.getInt("x") + boundsObj.getInt("width"),
-                        boundsObj.getInt("y") + boundsObj.getInt("height")
-                    ),
-                    tag = analysis.getString("tag"),
-                    tone = analysis.getString("tone"),
-                    emotion = analysis.getString("emotion"),
-                    riskScore = analysis.getInt("riskScore"),
-                    reason = analysis.getString("reason")
-                )
-            )
-        }
-
-        val overall = json.getJSONObject("overall")
-
-        Log.d(TAG, "✅ Successfully parsed ${analyzedElements.size} elements")
-
-        AnalysisResult(
-            elements = analyzedElements,
-            overallSafety = overall.getString("screenSafety"),
-            summary = overall.getString("summary")
+        ScanResult(
+            isSafe = isSafe,
+            riskLevel = riskLevel,
+            tags = tags,
+            analysis = analysis
         )
     }
 
@@ -404,12 +292,12 @@ class ScreenReaderService : AccessibilityService() {
     }
 
     // ========================================
-    // DISPLAY TAGS ON SCREEN
+    // DISPLAY RESULT TAGS ON SCREEN
     // ========================================
-    private fun displayTags(result: AnalysisResult) {
-        Log.d(TAG, "📍 Displaying ${result.elements.size} tags...")
+    private fun displayResultTags(result: ScanResult) {
+        Log.d(TAG, "📍 Displaying scan results...")
         
-        // Create container for all tags
+        // Create container for summary
         tagsContainer = FrameLayout(this)
 
         val params = WindowManager.LayoutParams(
@@ -424,73 +312,56 @@ class ScreenReaderService : AccessibilityService() {
         try {
             windowManager.addView(tagsContainer, params)
             
-            // Add tags for risky elements or all elements
-            var tagCount = 0
-            result.elements.forEach { element ->
-                // Show all tags, not just risky ones
-                createTagView(element)
-                tagCount++
-            }
+            // Create a summary card at the top
+            createSummaryCard(result)
             
-            Log.d(TAG, "✅ Displayed $tagCount tags")
+            Log.d(TAG, "✅ Results displayed")
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Failed to display tags", e)
+            Log.e(TAG, "❌ Failed to display results", e)
         }
     }
 
-    private fun createTagView(element: ElementAnalysis) {
-        val tagView = android.widget.TextView(this).apply {
-            text = element.tag
-            textSize = 11f
-            setPadding(12, 6, 12, 6)
-            setTextColor(android.graphics.Color.WHITE)
-            
-            // Set background color based on tag
-            val bgColor = when (element.tag) {
-                "Scam" -> android.graphics.Color.parseColor("#D32F2F")
-                "Suspicious" -> android.graphics.Color.parseColor("#FF9800")
-                "Phishing" -> android.graphics.Color.parseColor("#E91E63")
-                "Emotional" -> android.graphics.Color.parseColor("#9C27B0")
-                "Urgent" -> android.graphics.Color.parseColor("#FF5722")
-                "Safe" -> android.graphics.Color.parseColor("#4CAF50")
-                else -> android.graphics.Color.parseColor("#2196F3")
-            }
-            
-            background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(bgColor)
-                cornerRadius = 14f
-                setStroke(2, android.graphics.Color.parseColor("#FFFFFF"))
-            }
-            
-            elevation = 10f
-            alpha = 0.95f
-            
-            // Add icon based on tag
-            when (element.tag) {
-                "Scam" -> setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.ic_dialog_alert, 0, 0, 0)
-                "Safe" -> setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.checkbox_on_background, 0, 0, 0)
-                "Urgent" -> setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.ic_dialog_info, 0, 0, 0)
-            }
-            compoundDrawablePadding = 4
+    private fun createSummaryCard(result: ScanResult) {
+        val summaryView = LayoutInflater.from(this)
+            .inflate(android.R.layout.simple_list_item_2, null)
+        
+        val text1 = summaryView.findViewById<android.widget.TextView>(android.R.id.text1)
+        val text2 = summaryView.findViewById<android.widget.TextView>(android.R.id.text2)
+        
+        text1.apply {
+            text = if (result.isSafe) "✅ Safe" else "⚠️ Threats Detected"
+            textSize = 20f
+            setTextColor(if (result.isSafe) 
+                android.graphics.Color.parseColor("#4CAF50") 
+            else 
+                android.graphics.Color.parseColor("#FF5722"))
         }
-
+        
+        text2.apply {
+            text = result.tags.joinToString(", ")
+            textSize = 14f
+            setTextColor(android.graphics.Color.WHITE)
+        }
+        
+        summaryView.apply {
+            setPadding(40, 40, 40, 40)
+            setBackgroundColor(android.graphics.Color.parseColor("#DD000000"))
+        }
+        
         val layoutParams = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.WRAP_CONTENT
         ).apply {
-            // Position tag near the element (top-right corner)
-            // Ensure it doesn't go off screen
-            val maxX = resources.displayMetrics.widthPixels - 120
-            val maxY = resources.displayMetrics.heightPixels - 40
-            
-            leftMargin = minOf(element.bounds.right - 100, maxX).coerceAtLeast(10)
-            topMargin = minOf(element.bounds.top - 5, maxY).coerceAtLeast(10)
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            topMargin = 100
+            leftMargin = 40
+            rightMargin = 40
         }
 
         try {
-            tagsContainer?.addView(tagView, layoutParams)
+            tagsContainer?.addView(summaryView, layoutParams)
         } catch (e: Exception) {
-            Log.e(TAG, "Error adding tag view", e)
+            Log.e(TAG, "Error adding summary card", e)
         }
     }
 
