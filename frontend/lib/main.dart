@@ -5,7 +5,6 @@ import 'dart:io';
 
 // Screens
 import 'screens/home_screen.dart';
-import 'widgets/whatsapp_floating_chat.dart';
 
 // Global navigator key
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -36,7 +35,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Wrapper widget that manages overlay layers
+// Wrapper widget - NO floating widgets, everything is native Android
 class AppWrapper extends ConsumerStatefulWidget {
   const AppWrapper({super.key});
 
@@ -60,23 +59,15 @@ class _AppWrapperState extends ConsumerState<AppWrapper> {
       if (event is Map) {
         final action = event['action'] as String?;
         
-        if (action == 'open_floating_chat') {
-          // Show HTML-style floating bubble and chatbot
-          ref.read(htmlFloatingProvider.notifier).showBubble();
-        } else if (action == 'close_floating_chat') {
-          // Hide floating bubble and chatbot
-          ref.read(htmlFloatingProvider.notifier).hideBubble();
-        } else if (action == 'open_scanner') {
-          // TODO: Show scanner if needed
-        } else if (action == 'close_scanner') {
-          // TODO: Hide scanner if needed
-        } else if (action == 'scan_complete') {
-          // Process scan result
+        if (action == 'scan_complete') {
+          // Process scan result if needed
           final scannedText = event['text'] as String?;
           if (scannedText != null && scannedText.isNotEmpty) {
-            // TODO: Handle scanned text
             debugPrint('Scanned text: $scannedText');
           }
+        } else if (action == 'scan_error') {
+          final error = event['error'] as String?;
+          debugPrint('Scan error: $error');
         }
       }
     });
@@ -84,14 +75,8 @@ class _AppWrapperState extends ConsumerState<AppWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // Main app content
-        const HomeScreen(),
-        
-        // HTML-style Floating Bubble + Chatbot
-        const HtmlStyleFloatingChat(),
-      ],
-    );
+    // Just the main app content - NO floating widgets
+    // All floating functionality is handled by native Android service
+    return const HomeScreen();
   }
 }
