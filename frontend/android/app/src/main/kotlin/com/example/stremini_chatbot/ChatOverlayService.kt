@@ -54,6 +54,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
     // Track active features
     private val activeFeatures = mutableSetOf<Int>()
+    private var isScannerActive = false
 
     // Drag Logic Variables
     private var initialX = 0
@@ -90,7 +91,8 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                     }
                 }
                 ScreenScannerService.ACTION_SCAN_COMPLETE -> {
-                    // Scan completed, tags will be shown by ScreenScannerService
+                    // Scan completed - Scanner service is handling tag display
+                    android.util.Log.d("ChatOverlay", "Scan complete received")
                 }
             }
         }
@@ -263,7 +265,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                     val responseBody = response.body?.string() ?: ""
                     val json = JSONObject(responseBody)
                     
-                    // Try different response field names
                     val reply = json.optString("reply", 
                         json.optString("response",
                         json.optString("message", "No response from AI")))
@@ -317,15 +318,34 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private fun handleScanner() {
+        // Check if accessibility service is running
+        if (!ScreenScannerService.isRunning()) {
+            // Show message to enable accessibility
+            android.widget.Toast.makeText(
+                this,
+                "Please enable Accessibility Service in Settings",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            
+            // Open accessibility settings
+            val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            return
+        }
+
         toggleFeature(menuItems[3].id)
+        isScannerActive = !isScannerActive
         
-        if (isFeatureActive(menuItems[3].id)) {
+        if (isScannerActive) {
             // Start scanning
+            android.util.Log.d("ChatOverlay", "Starting screen scan")
             val intent = Intent(this, ScreenScannerService::class.java)
             intent.action = ScreenScannerService.ACTION_START_SCAN
             startService(intent)
         } else {
             // Stop scanning and remove tags
+            android.util.Log.d("ChatOverlay", "Stopping screen scan")
             val intent = Intent(this, ScreenScannerService::class.java)
             intent.action = ScreenScannerService.ACTION_STOP_SCAN
             startService(intent)
@@ -334,6 +354,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
     private fun handleVoiceCommand() {
         // TODO: Implement voice command
+        android.widget.Toast.makeText(this, "Voice command coming soon", android.widget.Toast.LENGTH_SHORT).show()
     }
 
     private fun handleSettings() {
@@ -343,6 +364,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private fun handleRefresh() {
         // Clear all active features
         activeFeatures.clear()
+        isScannerActive = false
         updateMenuItemsColor()
         
         // Hide chatbot
@@ -376,7 +398,14 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                     0 -> item.setColorFilter(android.graphics.Color.parseColor("#23A6E2")) // Refresh
                     1 -> item.setColorFilter(android.graphics.Color.parseColor("#23A6E2")) // Settings
                     2 -> item.setColorFilter(android.graphics.Color.parseColor("#23A6E2")) // Chat
-                    3 -> item.setColorFilter(android.graphics.Color.parseColor("#E040FB")) // Scanner
+                    3 -> {
+                        // Scanner - show cyan when active
+                        if (isScannerActive) {
+                            item.setColorFilter(android.graphics.Color.parseColor("#00D9FF"))
+                        } else {
+                            item.setColorFilter(android.graphics.Color.parseColor("#E040FB"))
+                        }
+                    }
                     4 -> item.setColorFilter(android.graphics.Color.parseColor("#0066FF")) // Voice
                 }
             }
@@ -485,6 +514,9 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 .setDuration(300)
                 .start()
         }
+        
+        // Update colors based on active state
+        updateMenuItemsColor()
     }
 
     private fun collapseMenu() {
@@ -569,6 +601,12 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         serviceScope.cancel()
         unregisterReceiver(controlReceiver)
         hideFloatingChatbot()
+        
+        // Stop scanner service
+        val intent = Intent(this, ScreenScannerService::class.java)
+        intent.action = ScreenScannerService.ACTION_STOP_SCAN
+        startService(intent)
+        
         if (::overlayView.isInitialized) windowManager.removeView(overlayView)
     }
 }
