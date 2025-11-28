@@ -28,7 +28,6 @@ class ScreenScannerService : AccessibilityService() {
         const val ACTION_STOP_SCAN = "com.example.stremini_chatbot.STOP_SCAN"
         const val ACTION_SCAN_COMPLETE = "com.example.stremini_chatbot.SCAN_COMPLETE"
         const val EXTRA_SCANNED_TEXT = "scanned_text"
-        const val EXTRA_ANALYSIS_RESULT = "analysis_result"
         
         private var instance: ScreenScannerService? = null
         
@@ -93,11 +92,11 @@ class ScreenScannerService : AccessibilityService() {
         
         serviceScope.launch {
             try {
-                delay(500) // Brief delay for animation
+                delay(1500) // Scanning animation duration
                 
                 val rootNode = rootInActiveWindow
                 if (rootNode == null) {
-                    showError("Cannot access screen content")
+                    showError("Cannot access screen content. Make sure accessibility permission is granted.")
                     return@launch
                 }
                 
@@ -106,7 +105,7 @@ class ScreenScannerService : AccessibilityService() {
                 rootNode.recycle()
                 
                 if (elements.isEmpty()) {
-                    showError("No content found on screen")
+                    showError("No content found on screen to analyze")
                     return@launch
                 }
                 
@@ -159,7 +158,7 @@ class ScreenScannerService : AccessibilityService() {
         node.getBoundsInScreen(bounds)
         
         // Skip if bounds are too small
-        if (bounds.width() < 10 || bounds.height() < 10) {
+        if (bounds.width() < 20 || bounds.height() < 20) {
             for (i in 0 until node.childCount) {
                 node.getChild(i)?.let { traverseNode(it, elements, depth + 1) }
             }
@@ -180,7 +179,7 @@ class ScreenScannerService : AccessibilityService() {
         }
         
         // Only add elements with meaningful text
-        if (!text.isNullOrBlank() && text.length > 3) {
+        if (!text.isNullOrBlank() && text.length > 5) {
             val metadata = mutableMapOf<String, String>()
             node.packageName?.toString()?.let { metadata["appName"] = it }
             
@@ -362,7 +361,7 @@ class ScreenScannerService : AccessibilityService() {
 
         windowManager.addView(tagsContainer, params)
 
-        // Add tags for each analyzed element (only risky ones)
+        // Add tags for risky elements only (riskScore > 30 or tag != "Safe")
         result.elements.forEach { element ->
             if (element.riskScore > 30 || element.tag != "Safe") {
                 createTagView(element)
@@ -374,7 +373,7 @@ class ScreenScannerService : AccessibilityService() {
         val tagView = TextView(this).apply {
             text = element.tag
             textSize = 11f
-            setPadding(10, 4, 10, 4)
+            setPadding(12, 6, 12, 6)
             setTextColor(android.graphics.Color.WHITE)
             
             // Set background color based on tag
@@ -390,27 +389,32 @@ class ScreenScannerService : AccessibilityService() {
             
             background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(bgColor)
-                cornerRadius = 12f
+                cornerRadius = 14f
+                setStroke(2, android.graphics.Color.parseColor("#FFFFFF"))
             }
             
-            elevation = 8f
+            elevation = 10f
             alpha = 0.95f
+            
+            // Add icon
+            when (element.tag) {
+                "Scam" -> setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.ic_dialog_alert, 0, 0, 0)
+                "Safe" -> setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.checkbox_on_background, 0, 0, 0)
+                "Urgent" -> setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.ic_dialog_info, 0, 0, 0)
+            }
+            compoundDrawablePadding = 4
         }
 
-        val tagParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
-            PixelFormat.TRANSLUCENT
+        val layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = element.bounds.right - 80
-            y = element.bounds.top - 5
+            // Position tag near the element (top-right corner)
+            leftMargin = element.bounds.right - 100
+            topMargin = element.bounds.top - 5
         }
 
-        tagsContainer?.addView(tagView, tagParams)
+        tagsContainer?.addView(tagView, layoutParams)
     }
 
     // ========================================
@@ -439,7 +443,7 @@ class ScreenScannerService : AccessibilityService() {
     // ERROR HANDLING
     // ========================================
     private fun showError(message: String) {
-        // Send error to Flutter
+        // Send error to MainActivity
         val intent = Intent(ACTION_SCAN_COMPLETE)
         intent.putExtra("error", message)
         sendBroadcast(intent)
