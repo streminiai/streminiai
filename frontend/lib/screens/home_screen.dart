@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'chat_screen.dart';
-import '../widgets/whatsapp_floating_chat.dart';
 
 // Bubble state provider
 final bubbleActiveProvider = StateProvider.autoDispose<bool>((ref) => false);
@@ -266,99 +265,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             
             const SizedBox(height: 16),
 
-            // Smart Chatbot Card with Two Buttons
+            // Smart Chatbot Card - Controls Native Bubble
             _buildFeatureCard(
               title: 'Smart Chatbot',
-              description: 'Multi-language assistant with voice support & safety tips',
+              description: 'Floating AI assistant with chat & screen analyzer. Works over all apps!',
               icon: Icons.chat_bubble_outline,
               iconColor: const Color(0xFF23A6E2),
-              status: 'online 24/7',
-              statusColor: Colors.green,
-              badges: const ['Safety Tips', 'Multi-language'],
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Floating Chat Button (HTML style bubble)
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF23A6E2).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: const Color(0xFF23A6E2),
-                        width: 2,
-                      ),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.bubble_chart,
-                        size: 18,
-                        color: Color(0xFF23A6E2),
-                      ),
-                      padding: EdgeInsets.zero,
-                      onPressed: () {
-                        // Show HTML-style floating bubble
-                        ref.read(htmlFloatingProvider.notifier).showBubble();
-                      },
-                      tooltip: 'Floating Chat',
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Full Screen Chat Button
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF23A6E2).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: const Color(0xFF23A6E2),
-                        width: 2,
-                      ),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.fullscreen,
-                        size: 18,
-                        color: Color(0xFF23A6E2),
-                      ),
-                      padding: EdgeInsets.zero,
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const ChatScreen()),
-                        );
-                      },
-                      tooltip: 'Full Screen',
-                    ),
-                  ),
-                ],
+              status: bubbleActive ? 'Active' : 'Inactive',
+              statusColor: bubbleActive ? Colors.green : Colors.grey,
+              badges: const ['Floating Chat', 'Screen Scanner', 'System-Wide'],
+              trailing: Switch(
+                value: bubbleActive,
+                onChanged: _toggleBubble,
+                activeColor: const Color(0xFF23A6E2),
               ),
               onTap: null,
             ),
 
             const SizedBox(height: 16),
 
-            // Digital Bodyguard Card
-            _buildFeatureCard(
-              title: 'Digital Bodyguard',
-              description: 'Detects scams and keeps you safe',
-              icon: Icons.security,
-              iconColor: const Color(0xFFE040FB),
-              status: bubbleActive ? 'Active' : 'Inactive',
-              statusColor: bubbleActive ? Colors.green : Colors.grey,
-              badges: const ['Scanned: 15K+', 'Blocks: 99%'],
-              trailing: Switch(
-                value: bubbleActive,
-                onChanged: _toggleBubble,
-                activeColor: const Color(0xFFE040FB),
+            // Info Card
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF00D9FF).withOpacity(0.3)),
               ),
-              onTap: () {
-                if (!_hasAccessibilityPermission) {
-                  _showAccessibilityDialog();
-                }
-              },
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Color(0xFF00D9FF), size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'When enabled, a floating bubble appears. Tap it to access Chat and Screen Scanner features over any app!',
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
 
             const SizedBox(height: 32),
@@ -378,7 +326,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               if (!_hasOverlayPermission)
                 _buildPermissionCard(
                   'Overlay Permission',
-                  'Required for floating bubble',
+                  'Required for floating bubble over other apps',
                   Icons.bubble_chart,
                   Colors.orange,
                   _requestOverlayPermission,
@@ -387,7 +335,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               if (!_hasAccessibilityPermission)
                 _buildPermissionCard(
                   'Accessibility Permission',
-                  'Required for screen scanner',
+                  'Required for screen scanner to read screen content',
                   Icons.accessibility_new,
                   Colors.purple,
                   _requestAccessibilityPermission,
@@ -674,44 +622,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAccessibilityDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Accessibility Permission',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'Screen Scanner requires Accessibility permission to read screen content and detect scams/fraud.\n\n'
-          'This permission is used only when you activate the scanner feature.',
-          style: TextStyle(color: Colors.grey),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _requestAccessibilityPermission();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.purple,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text('Enable'),
           ),
         ],
       ),
