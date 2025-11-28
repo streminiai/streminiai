@@ -15,12 +15,19 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.Animation
+import android.view.animation.RotateAnimation
 import android.widget.ImageView
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.*
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.abs
@@ -30,7 +37,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     companion object {
         const val ACTION_SEND_MESSAGE = "com.example.stremini_chatbot.SEND_MESSAGE"
         const val EXTRA_MESSAGE = "message"
-        const val ACTION_SCAN_COMPLETE = "com.example.stremini_chatbot.SCAN_COMPLETE"
     }
 
     private lateinit var windowManager: WindowManager
@@ -65,7 +71,15 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private var lastCollapsedX = 0
     private var lastCollapsedY = 200
 
-    // Broadcast receiver for messages and scanner
+    // HTTP Client for API calls
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
+    
+    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
+    // Broadcast receiver for messages
     private val controlReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
@@ -112,11 +126,11 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         
         // Get references to menu items
         menuItems = listOf(
-            overlayView.findViewById(R.id.btn_ai),        // Chat
-            overlayView.findViewById(R.id.btn_scanner),   // Scanner
-            overlayView.findViewById(R.id.btn_keyboard),  // Voice
-            overlayView.findViewById(R.id.btn_settings),  // Settings
-            overlayView.findViewById(R.id.btn_refresh)    // Refresh
+            overlayView.findViewById(R.id.btn_refresh),     // Refresh
+            overlayView.findViewById(R.id.btn_settings),    // Settings
+            overlayView.findViewById(R.id.btn_ai),          // Chat
+            overlayView.findViewById(R.id.btn_scanner),     // Scanner
+            overlayView.findViewById(R.id.btn_keyboard)     // Voice
         )
 
         val typeParam = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -140,19 +154,19 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         bubbleIcon.setOnTouchListener(this)
         
         // Set click listeners for menu items
-        menuItems[0].setOnClickListener { handleAIChat() }       // AI Chat
-        menuItems[1].setOnClickListener { handleScanner() }      // Scanner
-        menuItems[2].setOnClickListener { handleVoiceCommand() } // Voice
-        menuItems[3].setOnClickListener { handleSettings() }     // Settings
-        menuItems[4].setOnClickListener { handleRefresh() }      // Refresh
+        menuItems[0].setOnClickListener { handleRefresh() }      // Refresh
+        menuItems[1].setOnClickListener { handleSettings() }     // Settings
+        menuItems[2].setOnClickListener { handleAIChat() }       // AI Chat
+        menuItems[3].setOnClickListener { handleScanner() }      // Scanner
+        menuItems[4].setOnClickListener { handleVoiceCommand() } // Voice
 
         windowManager.addView(overlayView, params)
     }
 
     private fun handleAIChat() {
-        toggleFeature(menuItems[0].id)
+        toggleFeature(menuItems[2].id)
         
-        if (isFeatureActive(menuItems[0].id)) {
+        if (isFeatureActive(menuItems[2].id)) {
             showFloatingChatbot()
         } else {
             hideFloatingChatbot()
@@ -198,7 +212,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             // Close button
             view.findViewById<ImageView>(R.id.btn_close_chat)?.setOnClickListener {
                 hideFloatingChatbot()
-                toggleFeature(menuItems[0].id) // Deactivate chat
+                toggleFeature(menuItems[2].id) // Deactivate chat
             }
 
             // Send button
@@ -210,10 +224,8 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                     addMessageToChatbot(message, isUser = true)
                     input.text?.clear()
                     
-                    // Send message to Flutter for API call
-                    val intent = Intent("com.example.stremini_chatbot.FLUTTER_MESSAGE")
-                    intent.putExtra("message", message)
-                    sendBroadcast(intent)
+                    // Send message to API
+                    sendMessageToAPI(message)
                 }
             }
 
@@ -226,6 +238,48 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             view.findViewById<ImageView>(R.id.btn_minimize_chat)?.setOnClickListener {
                 hideFloatingChatbot()
                 // Keep feature active
+            }
+        }
+    }
+
+    private fun sendMessageToAPI(userMessage: String) {
+        serviceScope.launch(Dispatchers.IO) {
+            try {
+                val requestJson = JSONObject().apply {
+                    put("message", userMessage)
+                }
+
+                val requestBody = requestJson.toString()
+                    .toRequestBody("application/json".toMediaType())
+
+                val request = Request.Builder()
+                    .url("https://ai-keyboard-backend.vishwajeetadkine705.workers.dev/chat/message")
+                    .post(requestBody)
+                    .build()
+
+                val response = client.newCall(request).execute()
+
+                if (response.isSuccessful) {
+                    val responseBody = response.body?.string() ?: ""
+                    val json = JSONObject(responseBody)
+                    
+                    // Try different response field names
+                    val reply = json.optString("reply", 
+                        json.optString("response",
+                        json.optString("message", "No response from AI")))
+
+                    withContext(Dispatchers.Main) {
+                        addMessageToChatbot(reply, isUser = false)
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        addMessageToChatbot("❌ Server error: ${response.code}", isUser = false)
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    addMessageToChatbot("⚠️ Network error: ${e.message}", isUser = false)
+                }
             }
         }
     }
@@ -263,9 +317,9 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private fun handleScanner() {
-        toggleFeature(menuItems[1].id)
+        toggleFeature(menuItems[3].id)
         
-        if (isFeatureActive(menuItems[1].id)) {
+        if (isFeatureActive(menuItems[3].id)) {
             // Start scanning
             val intent = Intent(this, ScreenScannerService::class.java)
             intent.action = ScreenScannerService.ACTION_START_SCAN
@@ -319,10 +373,11 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 item.setColorFilter(android.graphics.Color.parseColor("#00D9FF"))
             } else {
                 when(index) {
-                    0 -> item.setColorFilter(android.graphics.Color.parseColor("#23A6E2")) // Chat
-                    1 -> item.setColorFilter(android.graphics.Color.parseColor("#E040FB")) // Scanner
-                    2 -> item.setColorFilter(android.graphics.Color.parseColor("#0066FF")) // Voice
-                    else -> item.setColorFilter(android.graphics.Color.parseColor("#23A6E2"))
+                    0 -> item.setColorFilter(android.graphics.Color.parseColor("#23A6E2")) // Refresh
+                    1 -> item.setColorFilter(android.graphics.Color.parseColor("#23A6E2")) // Settings
+                    2 -> item.setColorFilter(android.graphics.Color.parseColor("#23A6E2")) // Chat
+                    3 -> item.setColorFilter(android.graphics.Color.parseColor("#E040FB")) // Scanner
+                    4 -> item.setColorFilter(android.graphics.Color.parseColor("#0066FF")) // Voice
                 }
             }
         }
@@ -375,6 +430,17 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private fun expandMenu() {
         isMenuExpanded = true
         
+        // Rotate main icon
+        val rotateAnimation = RotateAnimation(
+            0f, 45f,
+            Animation.RELATIVE_TO_SELF, 0.5f,
+            Animation.RELATIVE_TO_SELF, 0.5f
+        ).apply {
+            duration = 300
+            fillAfter = true
+        }
+        bubbleIcon.startAnimation(rotateAnimation)
+        
         val radiusPx = dpToPx(radiusDp).toFloat()
         val bubbleSizePx = dpToPx(bubbleSizeDp).toFloat()
         val menuItemSizePx = dpToPx(menuItemSizeDp).toFloat()
@@ -423,6 +489,17 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
     private fun collapseMenu() {
         isMenuExpanded = false
+
+        // Rotate main icon back
+        val rotateAnimation = RotateAnimation(
+            45f, 0f,
+            Animation.RELATIVE_TO_SELF, 0.5f,
+            Animation.RELATIVE_TO_SELF, 0.5f
+        ).apply {
+            duration = 300
+            fillAfter = true
+        }
+        bubbleIcon.startAnimation(rotateAnimation)
 
         for (view in menuItems) {
             view.animate()
@@ -489,6 +566,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
     override fun onDestroy() {
         super.onDestroy()
+        serviceScope.cancel()
         unregisterReceiver(controlReceiver)
         hideFloatingChatbot()
         if (::overlayView.isInitialized) windowManager.removeView(overlayView)
