@@ -90,7 +90,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                         addMessageToChatbot(message, isUser = false)
                     }
                 }
-                ScreenScannerService.ACTION_SCAN_COMPLETE -> {
+                ScreenReaderService.ACTION_SCAN_COMPLETE -> {
                     // Scan completed - Scanner service is handling tag display
                     android.util.Log.d("ChatOverlay", "Scan complete received")
                 }
@@ -113,7 +113,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         // Register broadcast receiver
         val filter = IntentFilter().apply {
             addAction(ACTION_SEND_MESSAGE)
-            addAction(ScreenScannerService.ACTION_SCAN_COMPLETE)
+            addAction(ScreenReaderService.ACTION_SCAN_COMPLETE)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(controlReceiver, filter, RECEIVER_NOT_EXPORTED)
@@ -318,33 +318,33 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private fun handleScanner() {
-    if (!ScreenScannerService.isRunning(this)) {
-        android.widget.Toast.makeText(
-            this,
-            "Please enable 'Stremini Screen Scanner' in Accessibility Settings",
-            android.widget.Toast.LENGTH_LONG
-        ).show()
+        if (!ScreenReaderService.isRunning(this)) {
+            android.widget.Toast.makeText(
+                this,
+                "Please enable 'Stremini Screen Scanner' in Accessibility Settings",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            
+            val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            return
+        }
         
-        val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        startActivity(intent)
-        return
-    }
-    
         toggleFeature(menuItems[3].id)
         isScannerActive = !isScannerActive
         
         if (isScannerActive) {
             // Start scanning
             android.util.Log.d("ChatOverlay", "Starting screen scan")
-            val intent = Intent(this, ScreenScannerService::class.java)
-            intent.action = ScreenScannerService.ACTION_START_SCAN
+            val intent = Intent(this, ScreenReaderService::class.java)
+            intent.action = ScreenReaderService.ACTION_START_SCAN
             startService(intent)
         } else {
             // Stop scanning and remove tags
             android.util.Log.d("ChatOverlay", "Stopping screen scan")
-            val intent = Intent(this, ScreenScannerService::class.java)
-            intent.action = ScreenScannerService.ACTION_STOP_SCAN
+            val intent = Intent(this, ScreenReaderService::class.java)
+            intent.action = ScreenReaderService.ACTION_STOP_SCAN
             startService(intent)
         }
     }
@@ -368,8 +368,8 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         hideFloatingChatbot()
         
         // Stop scanner
-        val intent = Intent(this, ScreenScannerService::class.java)
-        intent.action = ScreenScannerService.ACTION_STOP_SCAN
+        val intent = Intent(this, ScreenReaderService::class.java)
+        intent.action = ScreenReaderService.ACTION_STOP_SCAN
         startService(intent)
     }
 
@@ -600,8 +600,8 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         hideFloatingChatbot()
         
         // Stop scanner service
-        val intent = Intent(this, ScreenScannerService::class.java)
-        intent.action = ScreenScannerService.ACTION_STOP_SCAN
+        val intent = Intent(this, ScreenReaderService::class.java)
+        intent.action = ScreenReaderService.ACTION_STOP_SCAN
         startService(intent)
         
         if (::overlayView.isInitialized) windowManager.removeView(overlayView)
