@@ -32,7 +32,7 @@
         android:tint="#23A6E2"
         android:visibility="gone"/>
 
-    <!-- Scanner Button (NEW) -->
+    <!-- Scanner Button -->
     <ImageView
         android:id="@+id/btn_scanner"
         android:layout_width="60dp"
