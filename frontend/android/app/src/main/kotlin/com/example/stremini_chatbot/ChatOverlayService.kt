@@ -318,22 +318,19 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private fun handleScanner() {
-        // Check if accessibility service is running
-        if (!ScreenScannerService.isRunning()) {
-            // Show message to enable accessibility
-            android.widget.Toast.makeText(
-                this,
-                "Please enable Accessibility Service in Settings",
-                android.widget.Toast.LENGTH_LONG
-            ).show()
-            
-            // Open accessibility settings
-            val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
-            return
-        }
-
+    if (!ScreenScannerService.isRunning(this)) {
+        android.widget.Toast.makeText(
+            this,
+            "Please enable 'Stremini Screen Scanner' in Accessibility Settings",
+            android.widget.Toast.LENGTH_LONG
+        ).show()
+        
+        val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
+        return
+    }
+    
         toggleFeature(menuItems[3].id)
         isScannerActive = !isScannerActive
         
