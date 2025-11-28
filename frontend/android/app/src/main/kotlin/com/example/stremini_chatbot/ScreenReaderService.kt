@@ -19,6 +19,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 class ScreenReaderService : AccessibilityService() {
 
@@ -38,8 +39,10 @@ class ScreenReaderService : AccessibilityService() {
 
     private lateinit var windowManager: WindowManager
     private val client = OkHttpClient.Builder()
-        .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-        .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
         .build()
     
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -103,7 +106,7 @@ class ScreenReaderService : AccessibilityService() {
         
         serviceScope.launch {
             try {
-                delay(1500) // Scanning animation duration
+                delay(800) // Brief animation
                 
                 val rootNode = rootInActiveWindow
                 if (rootNode == null) {
@@ -118,26 +121,26 @@ class ScreenReaderService : AccessibilityService() {
                 val screenText = extractAllText(rootNode)
                 rootNode.recycle()
                 
-                Log.d(TAG, "📋 Extracted ${screenText.length} characters of text")
+                Log.d(TAG, "📋 Extracted ${screenText.length} characters")
                 
-                if (screenText.isEmpty()) {
-                    showError("No text found on screen to analyze")
+                if (screenText.isEmpty() || screenText.length < 10) {
+                    showInfo("Screen appears mostly empty - not much content to analyze")
                     return@launch
                 }
                 
                 Log.d(TAG, "Text preview: ${screenText.take(200)}...")
                 
-                // Send to simplified backend endpoint
+                // Send to backend for analysis
                 Log.d(TAG, "🌐 Sending to backend for analysis...")
                 val result = analyzeScreenContent(screenText)
                 
-                Log.d(TAG, "✅ Analysis complete")
+                Log.d(TAG, "✅ Analysis complete: isSafe=${result.isSafe}, tags=${result.tags.size}")
                 
                 // Hide scanning animation
                 hideScanningAnimation()
                 
-                // Show results as tags
-                displayResultTags(result)
+                // Show results
+                displayResultSummary(result)
                 
                 isScanning = false
                 tagsVisible = true
@@ -174,15 +177,19 @@ class ScreenReaderService : AccessibilityService() {
         
         // Traverse children
         for (i in 0 until node.childCount) {
-            node.getChild(i)?.let { 
-                traverseForText(it, textBuilder)
-                it.recycle()
+            try {
+                node.getChild(i)?.let { 
+                    traverseForText(it, textBuilder)
+                    it.recycle()
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Error traversing child node: ${e.message}")
             }
         }
     }
 
     // ========================================
-    // ANALYZE USING SIMPLER ENDPOINT
+    // ANALYZE USING BACKEND API
     // ========================================
     data class ScanResult(
         val isSafe: Boolean,
@@ -194,61 +201,88 @@ class ScreenReaderService : AccessibilityService() {
     private suspend fun analyzeScreenContent(content: String): ScanResult = withContext(Dispatchers.IO) {
         Log.d(TAG, "🔄 Building API request...")
         
-        val requestJson = JSONObject().apply {
-            put("content", content)
-        }
+        try {
+            val requestJson = JSONObject().apply {
+                put("content", content.take(5000)) // Limit to 5000 chars
+            }
 
-        val requestBody = requestJson.toString()
-            .toRequestBody("application/json".toMediaType())
+            val requestBody = requestJson.toString()
+                .toRequestBody("application/json".toMediaType())
 
-        Log.d(TAG, "📤 Sending request to /security/scan-content...")
+            Log.d(TAG, "📤 Sending request to /security/scan-content...")
 
-        val request = Request.Builder()
-            .url("https://ai-keyboard-backend.vishwajeetadkine705.workers.dev/security/scan-content")
-            .post(requestBody)
-            .build()
+            val request = Request.Builder()
+                .url("https://ai-keyboard-backend.vishwajeetadkine705.workers.dev/security/scan-content")
+                .post(requestBody)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Accept", "application/json")
+                .build()
 
-        val response = client.newCall(request).execute()
+            val response = client.newCall(request).execute()
 
-        if (!response.isSuccessful) {
-            val errorBody = response.body?.string()
-            Log.e(TAG, "❌ API Error: ${response.code}, Body: $errorBody")
+            val responseBody = response.body?.string() 
+                ?: throw IOException("Empty response from server")
+
+            Log.d(TAG, "📥 Response code: ${response.code}")
+            Log.d(TAG, "📥 Response body: ${responseBody.take(300)}...")
+
+            if (!response.isSuccessful) {
+                Log.e(TAG, "❌ API Error: ${response.code}")
+                Log.e(TAG, "Error body: $responseBody")
+                
+                // Return safe fallback
+                return@withContext ScanResult(
+                    isSafe = true,
+                    riskLevel = "safe",
+                    tags = listOf("Analysis Error - Server Issue"),
+                    analysis = "Unable to connect to security service. Status code: ${response.code}"
+                )
+            }
+
+            // Parse JSON response
+            val json = JSONObject(responseBody)
+
+            // Extract fields with fallbacks
+            val isSafe = json.optBoolean("isSafe", true)
+            val riskLevel = json.optString("riskLevel", "safe")
+            val analysis = json.optString("analysis", "Content analyzed")
             
-            // Return a mock/fallback result for now
+            val tagsArray = json.optJSONArray("tags") ?: JSONArray()
+            val tags = mutableListOf<String>()
+            for (i in 0 until tagsArray.length()) {
+                tags.add(tagsArray.getString(i))
+            }
+
+            if (tags.isEmpty()) {
+                tags.add(if (isSafe) "Safe" else "Review Recommended")
+            }
+
+            Log.d(TAG, "✅ Parsed result: isSafe=$isSafe, riskLevel=$riskLevel, tags=${tags.size}")
+
             return@withContext ScanResult(
-                isSafe = false,
-                riskLevel = "warning",
-                tags = listOf("Unable to analyze", "API Error ${response.code}"),
-                analysis = "Could not connect to security service. Error: ${response.code}"
+                isSafe = isSafe,
+                riskLevel = riskLevel,
+                tags = tags,
+                analysis = analysis
+            )
+            
+        } catch (e: IOException) {
+            Log.e(TAG, "❌ Network error", e)
+            return@withContext ScanResult(
+                isSafe = true,
+                riskLevel = "safe",
+                tags = listOf("Network Error"),
+                analysis = "Could not reach security server. Check your internet connection."
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Analysis error", e)
+            return@withContext ScanResult(
+                isSafe = true,
+                riskLevel = "safe",
+                tags = listOf("Error"),
+                analysis = "Analysis failed: ${e.message}"
             )
         }
-
-        val responseBody = response.body?.string() 
-            ?: throw IOException("Empty response")
-
-        Log.d(TAG, "📥 Response received: ${responseBody.take(200)}...")
-
-        val json = JSONObject(responseBody)
-
-        // Parse response
-        val isSafe = json.optBoolean("isSafe", true)
-        val riskLevel = json.optString("riskLevel", "safe")
-        val analysis = json.optString("analysis", "Content analyzed")
-        
-        val tagsArray = json.optJSONArray("tags") ?: JSONArray()
-        val tags = mutableListOf<String>()
-        for (i in 0 until tagsArray.length()) {
-            tags.add(tagsArray.getString(i))
-        }
-
-        Log.d(TAG, "✅ Parsed result: isSafe=$isSafe, tags=${tags.size}")
-
-        ScanResult(
-            isSafe = isSafe,
-            riskLevel = riskLevel,
-            tags = tags,
-            analysis = analysis
-        )
     }
 
     // ========================================
@@ -292,49 +326,58 @@ class ScreenReaderService : AccessibilityService() {
     }
 
     // ========================================
-    // DISPLAY RESULT TAGS ON SCREEN
+    // DISPLAY RESULT SUMMARY
     // ========================================
-    private fun displayResultTags(result: ScanResult) {
+    private fun displayResultSummary(result: ScanResult) {
         Log.d(TAG, "📍 Displaying scan results...")
         
-        // Create container for summary
         tagsContainer = FrameLayout(this)
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         )
+        
+        params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        params.y = 100
 
         try {
             windowManager.addView(tagsContainer, params)
-            
-            // Create a summary card at the top
             createSummaryCard(result)
-            
             Log.d(TAG, "✅ Results displayed")
+            
+            // Auto-hide after 10 seconds
+            serviceScope.launch {
+                delay(10000)
+                clearTags()
+            }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to display results", e)
         }
     }
 
     private fun createSummaryCard(result: ScanResult) {
-        val summaryView = LayoutInflater.from(this)
+        val cardView = LayoutInflater.from(this)
             .inflate(android.R.layout.simple_list_item_2, null)
         
-        val text1 = summaryView.findViewById<android.widget.TextView>(android.R.id.text1)
-        val text2 = summaryView.findViewById<android.widget.TextView>(android.R.id.text2)
+        val text1 = cardView.findViewById<android.widget.TextView>(android.R.id.text1)
+        val text2 = cardView.findViewById<android.widget.TextView>(android.R.id.text2)
+        
+        val statusColor = when (result.riskLevel) {
+            "danger" -> android.graphics.Color.parseColor("#F44336")
+            "warning" -> android.graphics.Color.parseColor("#FF9800")
+            else -> android.graphics.Color.parseColor("#4CAF50")
+        }
+        
+        val statusText = if (result.isSafe) "✅ Safe" else "⚠️ Threats Detected"
         
         text1.apply {
-            text = if (result.isSafe) "✅ Safe" else "⚠️ Threats Detected"
+            text = statusText
             textSize = 20f
-            setTextColor(if (result.isSafe) 
-                android.graphics.Color.parseColor("#4CAF50") 
-            else 
-                android.graphics.Color.parseColor("#FF5722"))
+            setTextColor(statusColor)
         }
         
         text2.apply {
@@ -343,7 +386,7 @@ class ScreenReaderService : AccessibilityService() {
             setTextColor(android.graphics.Color.WHITE)
         }
         
-        summaryView.apply {
+        cardView.apply {
             setPadding(40, 40, 40, 40)
             setBackgroundColor(android.graphics.Color.parseColor("#DD000000"))
         }
@@ -352,17 +395,45 @@ class ScreenReaderService : AccessibilityService() {
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.WRAP_CONTENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            topMargin = 100
             leftMargin = 40
             rightMargin = 40
         }
 
+        cardView.setOnClickListener {
+            showDetailedResults(result)
+        }
+
         try {
-            tagsContainer?.addView(summaryView, layoutParams)
+            tagsContainer?.addView(cardView, layoutParams)
         } catch (e: Exception) {
             Log.e(TAG, "Error adding summary card", e)
         }
+    }
+
+    private fun showDetailedResults(result: ScanResult) {
+        android.widget.Toast.makeText(
+            this,
+            "Analysis: ${result.analysis}",
+            android.widget.Toast.LENGTH_LONG
+        ).show()
+    }
+
+    // ========================================
+    // INFO MESSAGE
+    // ========================================
+    private fun showInfo(message: String) {
+        Log.i(TAG, "Info: $message")
+        hideScanningAnimation()
+        
+        serviceScope.launch(Dispatchers.Main) {
+            android.widget.Toast.makeText(
+                this@ScreenReaderService,
+                message,
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
+        
+        isScanning = false
     }
 
     // ========================================
@@ -396,7 +467,6 @@ class ScreenReaderService : AccessibilityService() {
     private fun showError(message: String) {
         Log.e(TAG, "Error: $message")
         
-        // Send error to MainActivity
         val intent = Intent(ACTION_SCAN_COMPLETE)
         intent.putExtra("error", message)
         sendBroadcast(intent)
@@ -404,7 +474,6 @@ class ScreenReaderService : AccessibilityService() {
         hideScanningAnimation()
         isScanning = false
         
-        // Show toast on main thread
         serviceScope.launch(Dispatchers.Main) {
             android.widget.Toast.makeText(
                 this@ScreenReaderService,
