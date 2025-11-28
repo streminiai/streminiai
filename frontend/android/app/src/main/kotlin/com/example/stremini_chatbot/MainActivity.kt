@@ -27,20 +27,6 @@ class MainActivity : FlutterActivity() {
     private val eventReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
-                ChatOverlayService.ACTION_OPEN_FLOATING_CHAT -> {
-                    eventSink?.success(mapOf("action" to "open_floating_chat"))
-                }
-                ChatOverlayService.ACTION_CLOSE_FLOATING_CHAT -> {
-                    eventSink?.success(mapOf("action" to "close_floating_chat"))
-                }
-                ChatOverlayService.ACTION_OPEN_SCANNER -> {
-                    // Start scanner
-                    startScreenScan()
-                }
-                ChatOverlayService.ACTION_CLOSE_SCANNER -> {
-                    // Stop scanner
-                    stopScreenScan()
-                }
                 ScreenScannerService.ACTION_SCAN_COMPLETE -> {
                     val scannedText = intent.getStringExtra(ScreenScannerService.EXTRA_SCANNED_TEXT)
                     val error = intent.getStringExtra("error")
@@ -143,12 +129,6 @@ class MainActivity : FlutterActivity() {
         startService(intent)
     }
 
-    private fun stopScreenScan() {
-        val intent = Intent(this, ScreenScannerService::class.java)
-        intent.action = ScreenScannerService.ACTION_STOP_SCAN
-        startService(intent)
-    }
-
     private fun sendMessageToAPI(userMessage: String) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -197,10 +177,6 @@ class MainActivity : FlutterActivity() {
     override fun onResume() {
         super.onResume()
         val filter = IntentFilter().apply {
-            addAction(ChatOverlayService.ACTION_OPEN_FLOATING_CHAT)
-            addAction(ChatOverlayService.ACTION_CLOSE_FLOATING_CHAT)
-            addAction(ChatOverlayService.ACTION_OPEN_SCANNER)
-            addAction(ChatOverlayService.ACTION_CLOSE_SCANNER)
             addAction(ScreenScannerService.ACTION_SCAN_COMPLETE)
             addAction("com.example.stremini_chatbot.FLUTTER_MESSAGE")
         }
