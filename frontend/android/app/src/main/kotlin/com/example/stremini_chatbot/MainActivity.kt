@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.text.TextUtils
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -21,8 +22,8 @@ class MainActivity : FlutterActivity() {
     private val eventReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
-                ScreenScannerService.ACTION_SCAN_COMPLETE -> {
-                    val scannedText = intent.getStringExtra(ScreenScannerService.EXTRA_SCANNED_TEXT)
+                ScreenReaderService.ACTION_SCAN_COMPLETE -> {
+                    val scannedText = intent.getStringExtra(ScreenReaderService.EXTRA_SCANNED_TEXT)
                     val error = intent.getStringExtra("error")
                     
                     if (error != null) {
@@ -63,7 +64,8 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
                 "hasAccessibilityPermission" -> {
-                    val has = ScreenScannerService.isRunning()
+                    val has = isAccessibilityServiceEnabled()
+                    android.util.Log.d("MainActivity", "hasAccessibilityPermission: $has")
                     result.success(has)
                 }
                 "requestAccessibilityPermission" -> {
@@ -73,10 +75,12 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
                 "startScreenScan" -> {
-                    if (ScreenScannerService.isRunning()) {
+                    if (isAccessibilityServiceEnabled()) {
+                        android.util.Log.d("MainActivity", "Starting screen scan from Flutter")
                         startScreenScan()
                         result.success(true)
                     } else {
+                        android.util.Log.w("MainActivity", "Accessibility service not enabled")
                         result.error("NO_PERMISSION", "Accessibility service not enabled", null)
                     }
                 }
@@ -111,22 +115,64 @@ class MainActivity : FlutterActivity() {
         )
     }
 
+    /**
+     * Check if the accessibility service is actually enabled
+     */
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val serviceName = "$packageName/${ScreenReaderService::class.java.canonicalName}"
+        
+        try {
+            val settingValue = Settings.Secure.getString(
+                contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            )
+            
+            if (settingValue.isNullOrEmpty()) {
+                android.util.Log.d("MainActivity", "No accessibility services enabled")
+                return false
+            }
+            
+            val enabled = TextUtils.SimpleStringSplitter(':').apply {
+                setString(settingValue)
+            }
+            
+            while (enabled.hasNext()) {
+                val componentName = enabled.next()
+                android.util.Log.d("MainActivity", "Found enabled service: $componentName")
+                if (componentName.equals(serviceName, ignoreCase = true)) {
+                    android.util.Log.d("MainActivity", "✅ Our service is enabled!")
+                    return true
+                }
+            }
+            
+            android.util.Log.d("MainActivity", "❌ Our service not found in enabled services")
+            return false
+            
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Error checking accessibility service", e)
+            return false
+        }
+    }
+
     private fun startScreenScan() {
-        val intent = Intent(this, ScreenScannerService::class.java)
-        intent.action = ScreenScannerService.ACTION_START_SCAN
+        val intent = Intent(this, ScreenReaderService::class.java)
+        intent.action = ScreenReaderService.ACTION_START_SCAN
         startService(intent)
     }
 
     override fun onResume() {
         super.onResume()
         val filter = IntentFilter().apply {
-            addAction(ScreenScannerService.ACTION_SCAN_COMPLETE)
+            addAction(ScreenReaderService.ACTION_SCAN_COMPLETE)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(eventReceiver, filter, RECEIVER_NOT_EXPORTED)
         } else {
             registerReceiver(eventReceiver, filter)
         }
+        
+        // Log current accessibility status
+        android.util.Log.d("MainActivity", "onResume - Accessibility enabled: ${isAccessibilityServiceEnabled()}")
     }
 
     override fun onPause() {
