@@ -19,6 +19,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.abs
 
+// Replace 'com.example.stremini_chatbot' with your actual package name
+
 class ChatOverlayService : Service(), View.OnTouchListener {
 
     private lateinit var windowManager: WindowManager
@@ -26,7 +28,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private lateinit var params: WindowManager.LayoutParams
 
     private lateinit var bubbleIcon: ImageView
-    private lateinit var menuItems: List<ImageView> // Changed to simple list of Views
+    private lateinit var menuItems: List<ImageView> 
     private var isMenuExpanded = false
 
     // Drag Logic Variables
@@ -37,8 +39,8 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private var isDragging = false
 
     // Configuration
-    private val bubbleSizeDp = 78f // Matches your Flutter size
-    private val menuItemSizeDp = 60f
+    private val bubbleSizeDp = 78f // Matches your Flutter GlowCircleButton size
+    private val menuItemSizeDp = 55f // Matches your Flutter radial button size
     private val radiusDp = 110f // Matches your Flutter radius
 
     // Position storage
@@ -62,9 +64,9 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         overlayView = LayoutInflater.from(this).inflate(R.layout.chat_bubble_layout, null)
         bubbleIcon = overlayView.findViewById(R.id.bubble_icon)
         
-        // Get references to menu items (Order matters: Top to Bottom visually)
+        // Ensure menu items are in the same order as in Flutter (Top to Bottom visually)
         menuItems = listOf(
-            overlayView.findViewById(R.id.btn_refresh),
+            overlayView.findViewById(R.id.btn_message),
             overlayView.findViewById(R.id.btn_settings),
             overlayView.findViewById(R.id.btn_ai),
             overlayView.findViewById(R.id.btn_keyboard),
@@ -93,7 +95,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         
         menuItems.forEach { view ->
             view.setOnClickListener {
-                openMainApp()
+                openMainApp() // Tapping any menu item returns to app
             }
         }
 
@@ -167,14 +169,23 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         
         windowManager.updateViewLayout(overlayView, params)
 
-        // 2. Determine Side and Angles
+        // 2. Determine Side and Angles (Dynamic Direction Logic)
         val screenWidth = resources.displayMetrics.widthPixels
-        // Calculate where the bubble center is relative to screen
         val bubbleCenterX = lastCollapsedX + (bubbleSizePx / 2)
         val isOnRightSide = bubbleCenterX > (screenWidth / 2)
-        
- double startAngle = isOnRightSide ? 90.0 : 90.0;
-    double endAngle = isOnRightSide ? 270.0 : -90.0;
+
+        var startAngle = 0.0
+        var endAngle = 0.0
+
+        if (isOnRightSide) {
+            // Icon on Right -> Explode Left (90 to 270)
+            startAngle = 90.0
+            endAngle = 270.0
+        } else {
+            // Icon on Left -> Explode Right (90 to -90)
+            startAngle = 90.0
+            endAngle = -90.0
+        }
 
         val step = (endAngle - startAngle) / (menuItems.size - 1)
 
@@ -212,6 +223,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 .start()
         }
         
+        // Restore window size and position after collapse animation
         overlayView.postDelayed({
             params.width = WindowManager.LayoutParams.WRAP_CONTENT
             params.height = WindowManager.LayoutParams.WRAP_CONTENT

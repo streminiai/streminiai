@@ -1,80 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-
-void main() {
-  runApp(const MyApp());
-}
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// --------------------------------------------------------------
-/// 🔵 MAIN APP
-/// --------------------------------------------------------------
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Glow Radial Menu',
-      theme: ThemeData.dark(),
-      home: const HomeScreen(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
-
-/// --------------------------------------------------------------
-/// 🔵 HOME SCREEN WITH DRAGGABLE BUTTON
-/// --------------------------------------------------------------
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
-
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  Offset buttonPosition = const Offset(100, 300);
-  String overlayMode = "closed";
-
-  void onDragEnd(Offset newPos) {
-    setState(() {
-      buttonPosition = newPos;
-    });
-  }
-
-  void toggleRadial() {
-    setState(() {
-      overlayMode = overlayMode == "closed" ? "radial" : "closed";
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Example background
-          Container(color: Colors.black87),
-
-          // Draggable Chat Icon + Radial Menu
-          DraggableChatIcon(
-            position: buttonPosition,
-            overlayMode: overlayMode,
-            onDragEnd: onDragEnd,
-            onTapMain: toggleRadial,
-            onOpenApp: () {},
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// --------------------------------------------------------------
-/// 🔵 GLOW CIRCLE BUTTON
+/// 🔵🟣 GLOW BUTTON (matches the screenshot UI)
 /// --------------------------------------------------------------
 class GlowCircleButton extends StatelessWidget {
-  final Widget icon; // Accepts Icon or ImageIcon
+  final IconData icon;
   final double size;
   final VoidCallback onTap;
 
@@ -121,7 +53,11 @@ class GlowCircleButton extends StatelessWidget {
               shape: BoxShape.circle,
               color: Colors.black,
             ),
-            child: Center(child: icon),
+            child: Icon(
+              icon,
+              color: const Color.fromARGB(255, 245, 245, 245),
+              size: size * 0.45,
+            ),
           ),
         ),
       ),
@@ -130,9 +66,9 @@ class GlowCircleButton extends StatelessWidget {
 }
 
 /// --------------------------------------------------------------
-/// 🔵 DRAGGABLE CHAT ICON + RADIAL MENU
+/// 🔵 MAIN DRAGGABLE OVERLAY + RADIAL MENU
 /// --------------------------------------------------------------
-class DraggableChatIcon extends StatefulWidget {
+class DraggableChatIcon extends ConsumerStatefulWidget {
   final Offset position;
   final Function(Offset) onDragEnd;
   final String overlayMode;
@@ -149,10 +85,10 @@ class DraggableChatIcon extends StatefulWidget {
   });
 
   @override
-  State<DraggableChatIcon> createState() => _DraggableChatIconState();
+  ConsumerState<DraggableChatIcon> createState() => _DraggableChatIconState();
 }
 
-class _DraggableChatIconState extends State<DraggableChatIcon>
+class _DraggableChatIconState extends ConsumerState<DraggableChatIcon>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _expandAnimation;
@@ -201,31 +137,37 @@ class _DraggableChatIconState extends State<DraggableChatIcon>
   }
 
   /// --------------------------------------------------------------
-  /// 🔵 RADIAL MENU
+  /// 🔵 RADIAL MENU WITH GLOW BUTTONS
   /// --------------------------------------------------------------
   Widget _buildRadialIcons(BuildContext context) {
     const double radius = 110.0;
+
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isOnRightSide =
         (_currentPosition.dx + (_iconSize / 2)) > (screenWidth / 2);
 
-    // You can mix IconData and ImageIcon here
+    // Icons in your radial menu
     final List<Map<String, dynamic>> icons = [
-      {'icon': Icon(Icons.message, color: Colors.white), 'action': () {}},
-      {
-        'icon': ImageIcon(
-          AssetImage('assets/icons/my_icon.png'),
-          color: Colors.white,
-        ),
-        'action': () {}
-      },
-      {'icon': Icon(Icons.settings, color: Colors.white), 'action': () {}},
-      {'icon': Icon(Icons.keyboard, color: Colors.white), 'action': () {}},
-      {'icon': Icon(Icons.shield, color: Colors.white), 'action': () {}},
+      {'icon': Icons.message, 'action': () {}},
+      {'icon': Icons.settings, 'action': () {}},
+      {'icon': Icons.memory, 'action': () {}},
+      {'icon': Icons.keyboard, 'action': () {}},
+      {'icon': Icons.shield, 'action': () {}},
     ];
-
-    double startAngle = isOnRightSide ? 90.0 : 90.0;
-    double endAngle = isOnRightSide ? 270.0 : -90.0;
+    double startAngle;
+    double endAngle;
+    // ✅ ADDED
+    if (isOnRightSide) {
+      // Icon is on the Right edge. Menu expands to the Left.
+      // 90° is Top, 270° is Bottom.
+      startAngle = 90.0;
+      endAngle = 270.0;
+    } else {
+      // Icon is on the Left edge. Menu expands to the Right.
+      // 90° is Top, -90° is Bottom.
+      startAngle = 90.0;
+      endAngle = -90.0;
+    }
     final double step = (endAngle - startAngle) / (icons.length - 1);
 
     return Stack(
@@ -233,6 +175,7 @@ class _DraggableChatIconState extends State<DraggableChatIcon>
       children: List.generate(icons.length, (index) {
         final double angle = startAngle + (index * step);
         final double rad = angle * (math.pi / 180.0);
+
         final double x = radius * math.cos(rad);
         final double y = radius * math.sin(rad);
 
@@ -259,6 +202,9 @@ class _DraggableChatIconState extends State<DraggableChatIcon>
     );
   }
 
+  /// --------------------------------------------------------------
+  /// MAIN UI (drag icon + radial menu)
+  /// --------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     final bool isRadial = widget.overlayMode == "radial";
@@ -278,6 +224,8 @@ class _DraggableChatIconState extends State<DraggableChatIcon>
                 height: _iconSize,
                 child: _buildRadialIcons(context),
               ),
+
+            /// 🔥 MAIN GLOWING BUTTON
             GestureDetector(
               onPanUpdate: (details) {
                 if (isRadial) widget.onTapMain();
@@ -288,7 +236,9 @@ class _DraggableChatIconState extends State<DraggableChatIcon>
               onPanEnd: (details) {
                 final screenWidth = MediaQuery.of(context).size.width;
                 final screenHeight = MediaQuery.of(context).size.height;
+
                 final topPadding = MediaQuery.of(context).padding.top;
+
                 final centerX = _currentPosition.dx + (_iconSize / 2);
                 final snapRight = centerX > (screenWidth / 2);
 
@@ -305,11 +255,7 @@ class _DraggableChatIconState extends State<DraggableChatIcon>
                     ? _rotateAnimation
                     : const AlwaysStoppedAnimation(0.0),
                 child: GlowCircleButton(
-                  icon: ImageIcon(
-                    AssetImage('assets/logo.jpg'),
-                    color: Colors.white,
-                    size: 40,
-                  ),
+                  icon: Icons.local_fire_department_rounded,
                   size: 70,
                   onTap: widget.onTapMain,
                 ),
