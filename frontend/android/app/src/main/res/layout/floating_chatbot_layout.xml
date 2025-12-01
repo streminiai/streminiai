@@ -3,11 +3,12 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@drawable/chatbot_bg"
+    android:background="@drawable/chatbot_rounded_bg"
     android:elevation="12dp">
 
     <!-- Header -->
     <LinearLayout
+        android:id="@+id/chat_header"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -17,12 +18,11 @@
 
         <!-- AI Icon -->
         <ImageView
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:src="@android:drawable/ic_dialog_info"
-            android:tint="#23A6E2"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:src="@drawable/new_logo"
             android:padding="4dp"
-            android:background="@drawable/circle_bg_blue"/>
+            android:background="@drawable/circle_bg_rounded"/>
 
         <!-- Title -->
         <TextView
@@ -34,17 +34,6 @@
             android:textSize="16sp"
             android:textStyle="bold"
             android:layout_marginStart="10dp"/>
-
-        <!-- Minimize Button -->
-        <ImageView
-            android:id="@+id/btn_minimize_chat"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:src="@android:drawable/ic_menu_close_clear_cancel"
-            android:tint="#FFFFFF"
-            android:padding="4dp"
-            android:layout_marginEnd="8dp"
-            android:contentDescription="Minimize"/>
 
         <!-- Close Button -->
         <ImageView

@@ -14,8 +14,7 @@
         <shape android:shape="ring"
             android:useLevel="false"
             android:thickness="3dp"
-            android:innerRadius="0dp" 
-            android:shape="oval"> 
+            android:innerRadius="0dp"> 
             <gradient 
                 android:type="sweep" 
                 android:startColor="#23A6E2"

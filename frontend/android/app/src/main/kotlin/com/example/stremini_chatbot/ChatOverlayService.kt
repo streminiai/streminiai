@@ -198,7 +198,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             PixelFormat.TRANSLUCENT
         )
         
-        floatingChatParams?.gravity = Gravity.BOTTOM or Gravity.END
+        floatingChatParams?.gravity = Gravity.TOP or Gravity.START
         floatingChatParams?.x = dpToPx(20f)
         floatingChatParams?.y = dpToPx(100f)
 
@@ -213,6 +213,35 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
     private fun setupFloatingChatListeners() {
         floatingChatView?.let { view ->
+            // Make the header draggable
+            val header = view.findViewById<LinearLayout>(R.id.chat_header)
+            header?.setOnTouchListener { _, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        initialTouchX = event.rawX
+                        initialTouchY = event.rawY
+                        initialX = floatingChatParams?.x ?: 0
+                        initialY = floatingChatParams?.y ?: 0
+                        isDragging = true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        if (isDragging && floatingChatParams != null) {
+                            val deltaX = (event.rawX - initialTouchX).toInt()
+                            val deltaY = (event.rawY - initialTouchY).toInt()
+                            
+                            floatingChatParams?.x = initialX + deltaX
+                            floatingChatParams?.y = initialY + deltaY
+                            
+                            windowManager.updateViewLayout(floatingChatView!!, floatingChatParams!!)
+                        }
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        isDragging = false
+                    }
+                }
+                true
+            }
+            
             // Close button
             view.findViewById<ImageView>(R.id.btn_close_chat)?.setOnClickListener {
                 hideFloatingChatbot()
@@ -238,11 +267,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 // TODO: Implement voice input
             }
 
-            // Minimize button
-            view.findViewById<ImageView>(R.id.btn_minimize_chat)?.setOnClickListener {
-                hideFloatingChatbot()
-                // Keep feature active
-            }
         }
     }
 

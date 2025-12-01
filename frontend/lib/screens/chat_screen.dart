@@ -86,8 +86,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   colors: [Color(0xFF23A6E2), Color(0xFFAA75F4), Color(0xFF0066FF)],
                 ),
               ),
-              child: const Center(
-                child: Icon(Icons.smart_toy, color: Colors.white, size: 18),
+              child:  Center(
+                child: Image.asset(
+              'lib/img/logo.jpg',
+              width: 32,
+              height: 32,
+              fit: BoxFit.contain,
+            ),
               ),
             ),
             const SizedBox(width: 12),
@@ -343,7 +348,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ],
                 ),
               ),
-              child: const Icon(Icons.smart_toy, color: Colors.white, size: 18),
+              child: Image.asset(
+                'lib/img/logo.jpg',
+                width: 32,
+                height: 32,
+                fit: BoxFit.contain,
+              ),
             ),
             const SizedBox(width: 12),
           ],

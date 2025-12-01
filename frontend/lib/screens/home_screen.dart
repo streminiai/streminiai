@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:stremini_chatbot/screens/chat_screen.dart';
 
 // Bubble state provider
 final bubbleActiveProvider = StateProvider.autoDispose<bool>((ref) => false);
@@ -15,7 +16,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  static const MethodChannel _overlayChannel = MethodChannel('stremini.chat.overlay');
+  static const MethodChannel _overlayChannel =
+      MethodChannel('stremini.chat.overlay');
   bool _hasOverlayPermission = false;
   bool _hasAccessibilityPermission = false;
   bool _checkingPermission = false;
@@ -30,11 +32,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _checkPermissions() async {
     if (!Platform.isAndroid) return;
-    
+
     setState(() => _checkingPermission = true);
     try {
-      final bool? hasOverlay = await _overlayChannel.invokeMethod<bool>('hasOverlayPermission');
-      final bool? hasAccessibility = await _overlayChannel.invokeMethod<bool>('hasAccessibilityPermission');
+      final bool? hasOverlay =
+          await _overlayChannel.invokeMethod<bool>('hasOverlayPermission');
+      final bool? hasAccessibility = await _overlayChannel
+          .invokeMethod<bool>('hasAccessibilityPermission');
       setState(() {
         _hasOverlayPermission = hasOverlay ?? false;
         _hasAccessibilityPermission = hasAccessibility ?? false;
@@ -47,7 +51,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _requestOverlayPermission() async {
     if (!Platform.isAndroid) return;
-    
+
     try {
       await _overlayChannel.invokeMethod('requestOverlayPermission');
       await Future.delayed(const Duration(seconds: 1));
@@ -63,12 +67,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _requestAccessibilityPermission() async {
     if (!Platform.isAndroid) return;
-    
+
     try {
       await _overlayChannel.invokeMethod('requestAccessibilityPermission');
       await Future.delayed(const Duration(seconds: 1));
       await _checkPermissions();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -126,7 +130,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
       );
-      
+
       if (result != true) {
         return;
       }
@@ -138,7 +142,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Floating bubble activated! Tap to access features.'),
+              content:
+                  Text('Floating bubble activated! Tap to access features.'),
               duration: Duration(seconds: 2),
             ),
           );
@@ -154,6 +159,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
       }
     }
+  }
+
+  void _openQuickChat() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ChatScreen()),
+    );
   }
 
   @override
@@ -176,18 +188,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
+            Image.asset(
+              'lib/img/logo.jpg',
               width: 32,
               height: 32,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: SweepGradient(
-                  colors: [Color(0xFF23A6E2), Color(0xFFAA75F4), Color(0xFF0066FF)],
-                ),
-              ),
-              child: const Center(
-                child: Icon(Icons.shield, color: Colors.white, size: 18),
-              ),
+              fit: BoxFit.contain,
             ),
             const SizedBox(width: 12),
             const Text(
@@ -239,25 +244,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       const Spacer(),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white.withOpacity(0.2)),
+                          border:
+                              Border.all(color: Colors.white.withOpacity(0.2)),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.touch_app, color: Colors.blue[300], size: 16),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Quick Chat',
-                              style: TextStyle(
-                                color: Colors.blue[300],
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                        child: GestureDetector(
+                          onTap: _openQuickChat,
+                          child: Row(
+                            children: [
+                              Icon(Icons.touch_app,
+                                  color: Colors.blue[300], size: 16),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Quick Chat',
+                                style: TextStyle(
+                                  color: Colors.blue[300],
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -273,9 +284,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Stats Row
             Row(
               children: [
@@ -319,18 +330,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            
+
             const SizedBox(height: 16),
 
             // Smart Chatbot Card
             _buildFeatureCard(
               title: 'Smart Chatbot',
-              description: 'HTML-style floating AI assistant with chat & screen analyzer. Works over all apps!',
+              description:
+                  'HTML-style floating AI assistant with chat & screen analyzer. Works over all apps!',
               icon: Icons.chat_bubble_outline,
               iconColor: const Color(0xFF23A6E2),
               status: bubbleActive ? 'Active' : 'Inactive',
               statusColor: bubbleActive ? Colors.green : Colors.grey,
-              badges: const ['Floating Chat', 'Screen Scanner', 'System-Wide', 'HTML Style'],
+              badges: const [
+                'Floating Chat',
+                'Screen Scanner',
+                'System-Wide',
+                'HTML Style'
+              ],
               trailing: Switch(
                 value: bubbleActive,
                 onChanged: _toggleBubble,
@@ -347,14 +364,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF1A1A1A),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF00D9FF).withOpacity(0.3)),
+                border:
+                    Border.all(color: const Color(0xFF00D9FF).withOpacity(0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.info_outline, color: Color(0xFF00D9FF), size: 24),
+                      const Icon(Icons.info_outline,
+                          color: Color(0xFF00D9FF), size: 24),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -369,10 +388,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _buildInfoStep('1', 'Tap the floating bubble to open radial menu'),
+                  _buildInfoStep(
+                      '1', 'Tap the floating bubble to open radial menu'),
                   _buildInfoStep('2', 'Select Chat icon to start conversation'),
-                  _buildInfoStep('3', 'Select Scanner icon to analyze screen for scams'),
-                  _buildInfoStep('4', 'Tags will appear near suspicious content'),
+                  _buildInfoStep(
+                      '3', 'Select Scanner icon to analyze screen for scams'),
+                  _buildInfoStep(
+                      '4', 'Tags will appear near suspicious content'),
                   _buildInfoStep('5', 'Tap scanner again to hide tags'),
                 ],
               ),
@@ -391,7 +413,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              
               if (!_hasOverlayPermission)
                 _buildPermissionCard(
                   'Overlay Permission',
@@ -400,7 +421,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Colors.orange,
                   _requestOverlayPermission,
                 ),
-              
               if (!_hasAccessibilityPermission)
                 _buildPermissionCard(
                   'Accessibility Permission',
@@ -466,7 +486,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: const Color(0xFF272727),
                   borderRadius: BorderRadius.circular(25),
@@ -487,9 +508,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
               ),
-              
               const SizedBox(height: 40),
-              
               _buildDrawerItem(Icons.home, 'Home', () {
                 Navigator.pop(context);
               }),
@@ -651,7 +670,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               runSpacing: 8,
               children: badges.map((badge) {
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: iconColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -716,17 +736,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ),
           ),
-          TextButton(
-            onPressed: onTap,
-            style: TextButton.styleFrom(
-              backgroundColor: color.withOpacity(0.2),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            ),
-            child: Text(
-              'Enable',
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
+          const SizedBox(width: 8),
+          SizedBox(
+            height: 36,
+            child: TextButton(
+              onPressed: onTap,
+              style: TextButton.styleFrom(
+                backgroundColor: color.withOpacity(0.2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              child: Text(
+                'Enable',
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
