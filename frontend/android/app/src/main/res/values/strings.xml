@@ -1,18 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Stremini AI</string>
-    <string name="accessibility_service_description">Stremini Screen Scanner provides security analysis across all apps on your device. This service can:
+    <string name="accessibility_service_description">Stremini Screen Scanner helps protect you from scams and fraud by analyzing screen content.
 
-• Read screen content from any app to detect scams and phishing attempts
-• Analyze messages, posts, and links for suspicious patterns
-• Display safety tags near potentially dangerous content
-• Work system-wide to protect you everywhere
+WHAT THIS SERVICE DOES:
+• Scans visible text on your screen when you manually activate it
+• Detects phishing attempts, scams, and suspicious content
+• Shows warning tags near dangerous content
+• Works across all apps to keep you safe
 
-Your privacy is important: Screen content is only analyzed when you manually activate the scanner by tapping the scanner icon in the Stremini floating bubble.
+WHEN IT WORKS:
+• Only when YOU tap the scanner button in Stremini
+• Never reads your screen automatically
+• You have full control over when scanning happens
 
-This service will NOT:
-• Automatically read your screen without your permission
-• Store or share your personal data
-• Track your activity
-• Access content when scanner is not active</string>
+YOUR PRIVACY:
+• No data is stored or shared
+• Content is only analyzed when scanner is active
+• No personal information is collected
+• All processing is for security purposes only
+
+HOW TO USE:
+1. Enable this service
+2. Open Stremini AI app
+3. Activate the floating bubble
+4. Tap the scanner icon when you want to check screen content
+
+This service is designed to protect you, not track you. You can disable it anytime in your phone\'s Accessibility Settings.</string>
 </resources>
