@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-
-
 class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
   const ChatAppBar({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    
     return AppBar(
       backgroundColor: Colors.black,
       elevation: 0,
@@ -31,13 +28,16 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
               ),
-              child: Image.asset(
-                'assets/logo.jpg',
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const Icon(
-                  Icons.broken_image,
-                  color: Colors.white,
-                  size: 20,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  'assets/logo.jpg',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.broken_image,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
               )),
           const SizedBox(width: 8),
@@ -51,7 +51,6 @@ class ChatAppBar extends ConsumerWidget implements PreferredSizeWidget {
           ),
           const Spacer(),
           // Toggle button for chat icon visibility
-         
         ],
       ),
     );

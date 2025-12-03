@@ -68,4 +68,6 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("org.json:json:20231013")
     implementation("androidx.core:core-ktx:1.13.1")
+    // Play Core for split install support
+    implementation("com.google.android.play:core:1.10.3")
 }

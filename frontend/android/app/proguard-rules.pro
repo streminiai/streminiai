@@ -34,6 +34,11 @@
 -keep public class * extends android.app.Service
 -keep public class * extends android.content.BroadcastReceiver
 -keep public class * extends android.content.ContentProvider
+# Keep Play Core classes
+-keep class com.google.android.play.core.** { *; }
+-keep class com.google.android.play.core.splitinstall.** { *; }
+-keep class com.google.android.play.core.splitcompat.** { *; }
+-keep class com.google.android.play.core.tasks.** { *; }
 
 # Prevent obfuscation of accessibility service
 -keepclassmembers class * extends android.accessibilityservice.AccessibilityService {

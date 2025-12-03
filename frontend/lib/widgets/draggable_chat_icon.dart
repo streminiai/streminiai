@@ -26,21 +26,10 @@ class GlowCircleButton extends StatelessWidget {
         height: size,
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          gradient: SweepGradient(
-            colors: [
-              Color(0xFF23A6E2),
-              Color(0xFFAA75F4),
-              Color(0xFF0066FF),
-            ],
-          ),
+          color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Color(0xFF23A6E2),
-              blurRadius: 3,
-              spreadRadius: 1,
-            ),
-            BoxShadow(
-              color: Color(0xFFAA75F4),
+              color: Colors.white,
               blurRadius: 3,
               spreadRadius: 1,
             ),
@@ -55,7 +44,7 @@ class GlowCircleButton extends StatelessWidget {
             ),
             child: Icon(
               icon,
-              color: const Color.fromARGB(255, 245, 245, 245),
+              color: Colors.white,
               size: size * 0.45,
             ),
           ),
@@ -140,7 +129,7 @@ class _DraggableChatIconState extends ConsumerState<DraggableChatIcon>
   /// 🔵 RADIAL MENU WITH GLOW BUTTONS
   /// --------------------------------------------------------------
   Widget _buildRadialIcons(BuildContext context) {
-    const double radius = 110.0;
+    const double radius = 75.0;
 
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isOnRightSide =

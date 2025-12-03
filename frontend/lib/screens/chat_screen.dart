@@ -26,11 +26,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _sendMessage() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-    
+
     ref.read(chatNotifierProvider.notifier).sendMessage(text);
     _controller.clear();
     _focusNode.unfocus();
-    
+
     // Auto-scroll to bottom after sending
     Future.delayed(const Duration(milliseconds: 300), () {
       if (_scrollController.hasClients) {
@@ -48,7 +48,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final chatState = ref.watch(chatNotifierProvider);
 
     // Auto-scroll when messages change
-    ref.listen<AsyncValue<List<Message>>>(chatNotifierProvider, (previous, next) {
+    ref.listen<AsyncValue<List<Message>>>(chatNotifierProvider,
+        (previous, next) {
       next.whenData((messages) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_scrollController.hasClients) {
@@ -83,16 +84,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: SweepGradient(
-                  colors: [Color(0xFF23A6E2), Color(0xFFAA75F4), Color(0xFF0066FF)],
+                  colors: [
+                    Color(0xFF23A6E2),
+                    Color(0xFFAA75F4),
+                    Color(0xFF0066FF)
+                  ],
                 ),
               ),
-              child:  Center(
-                child: Image.asset(
-              'lib/img/logo.jpg',
-              width: 32,
-              height: 32,
-              fit: BoxFit.contain,
-            ),
+              child: Center(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset(
+                    'lib/img/logo.jpg',
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.contain,
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -163,7 +171,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
                 return ListView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final message = messages[index];
@@ -218,7 +227,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.add, color: Colors.white, size: 24),
+                      icon:
+                          const Icon(Icons.add, color: Colors.white, size: 24),
                       onPressed: () {
                         // TODO: Implement attachment
                       },
@@ -237,10 +247,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       child: TextField(
                         controller: _controller,
                         focusNode: _focusNode,
-                        style: const TextStyle(color: Colors.white, fontSize: 15),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 15),
                         decoration: const InputDecoration(
                           hintText: 'Ask anything...',
-                          hintStyle: TextStyle(color: Colors.grey, fontSize: 15),
+                          hintStyle:
+                              TextStyle(color: Colors.grey, fontSize: 15),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(vertical: 12),
                         ),
@@ -261,7 +273,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.mic, color: Colors.white, size: 24),
+                      icon:
+                          const Icon(Icons.mic, color: Colors.white, size: 24),
                       onPressed: () {
                         // TODO: Implement voice input
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -286,7 +299,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                      icon:
+                          const Icon(Icons.send, color: Colors.white, size: 20),
                       onPressed: _sendMessage,
                     ),
                   ),
@@ -332,42 +346,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!isUser) ...[
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFF23A6E2).withOpacity(0.8),
-                    const Color(0xFFAA75F4).withOpacity(0.8),
-                  ],
-                ),
-              ),
-              child: Image.asset(
-                'lib/img/logo.jpg',
-                width: 32,
-                height: 32,
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(width: 12),
-          ],
           Flexible(
             child: Column(
-              crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: isUser ? Colors.grey[800] : Colors.grey[900],
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
+                if (isUser)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[800],
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      message.text,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        height: 1.4,
+                      ),
+                    ),
+                  )
+                else
+                  Text(
                     message.text,
                     style: const TextStyle(
                       color: Colors.white,
@@ -375,30 +381,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       height: 1.4,
                     ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatTime(message.timestamp),
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 11,
-                  ),
-                ),
               ],
             ),
           ),
-          if (isUser) ...[
-            const SizedBox(width: 12),
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: Colors.grey[800],
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.person, color: Colors.white, size: 18),
-            ),
-          ],
         ],
       ),
     );
@@ -421,12 +406,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  String _formatTime(DateTime timestamp) {
-    final hour = timestamp.hour.toString().padLeft(2, '0');
-    final minute = timestamp.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
-  }
-
   Widget _buildDrawer() {
     return Drawer(
       backgroundColor: const Color(0xFF1A1A1A),
@@ -438,7 +417,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             children: [
               // Search Bar
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: const Color(0xFF272727),
                   borderRadius: BorderRadius.circular(25),
@@ -459,9 +439,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 40),
-              
+
               // Menu Items
               ListTile(
                 leading: const Icon(Icons.home, color: Colors.white, size: 24),
@@ -479,7 +459,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.settings, color: Colors.white, size: 24),
+                leading:
+                    const Icon(Icons.settings, color: Colors.white, size: 24),
                 title: const Text(
                   'Settings',
                   style: TextStyle(
@@ -493,7 +474,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.help_outline, color: Colors.white, size: 24),
+                leading: const Icon(Icons.help_outline,
+                    color: Colors.white, size: 24),
                 title: const Text(
                   'Contact Us',
                   style: TextStyle(
@@ -506,9 +488,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   // TODO: Navigate to contact
                 },
               ),
-              
+
               const Spacer(),
-              
+
               // Clear Chat Button
               Container(
                 width: double.infinity,
@@ -555,7 +537,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   label: const Text(
                     'Clear Chat History',
-                    style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                        color: Colors.red, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),

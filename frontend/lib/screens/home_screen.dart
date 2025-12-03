@@ -167,6 +167,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       MaterialPageRoute(builder: (context) => const ChatScreen()),
     );
   }
+// <---------- greeting logic ---------->
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Good morning! 👋';
+    } else if (hour < 18) {
+      return 'Good afternoon! 👋';
+    } else {
+      return 'Good evening! 👋';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -234,9 +245,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   Row(
                     children: [
-                      const Text(
-                        'Good afternoon! 👋',
-                        style: TextStyle(
+                      Text(
+                        _getGreeting(),
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 24,
                           fontWeight: FontWeight.bold,

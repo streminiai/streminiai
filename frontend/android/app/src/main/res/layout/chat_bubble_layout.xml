@@ -37,7 +37,7 @@
         android:id="@+id/btn_scanner"
         android:layout_width="50dp"
         android:layout_height="50dp"
-        android:background="@drawable/circle_bg_purple"
+        android:background="@drawable/circle_bg_blue"
         android:src="@drawable/shield"
         android:padding="10dp"
         android:contentDescription="Screen Scanner"
