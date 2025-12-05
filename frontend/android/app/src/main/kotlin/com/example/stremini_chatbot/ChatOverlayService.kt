@@ -32,8 +32,6 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.abs
 
-// Replace 'com.example.stremini_chatbot' with your actual package name
-
 class ChatOverlayService : Service(), View.OnTouchListener {
 
     companion object {
@@ -64,6 +62,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private var initialTouchX = 0f
     private var initialTouchY = 0f
     private var isDragging = false
+    private var hasMoved = false
 
     // Configuration
     private val bubbleSizeDp = 78f
@@ -93,7 +92,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                     }
                 }
                 ScreenReaderService.ACTION_SCAN_COMPLETE -> {
-                    // Scan completed - Scanner service is handling tag display
                     android.util.Log.d("ChatOverlay", "Scan complete received")
                 }
             }
@@ -112,7 +110,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         startForegroundService()
         setupOverlay()
         
-        // Register broadcast receiver
         val filter = IntentFilter().apply {
             addAction(ACTION_SEND_MESSAGE)
             addAction(ScreenReaderService.ACTION_SCAN_COMPLETE)
@@ -128,13 +125,12 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         overlayView = LayoutInflater.from(this).inflate(R.layout.chat_bubble_layout, null)
         bubbleIcon = overlayView.findViewById(R.id.bubble_icon)
         
-        // Get references to menu items
         menuItems = listOf(
-            overlayView.findViewById(R.id.btn_refresh),     // Refresh
-            overlayView.findViewById(R.id.btn_settings),    // Settings
-            overlayView.findViewById(R.id.btn_ai),          // Chat
-            overlayView.findViewById(R.id.btn_scanner),     // Scanner
-            overlayView.findViewById(R.id.btn_keyboard)     // Voice
+            overlayView.findViewById(R.id.btn_refresh),
+            overlayView.findViewById(R.id.btn_settings),
+            overlayView.findViewById(R.id.btn_ai),
+            overlayView.findViewById(R.id.btn_scanner),
+            overlayView.findViewById(R.id.btn_keyboard)
         )
 
         val typeParam = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -148,7 +144,8 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             WindowManager.LayoutParams.WRAP_CONTENT,
             typeParam,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or 
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT
         )
         params.gravity = Gravity.TOP or Gravity.START
@@ -158,11 +155,14 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         bubbleIcon.setOnTouchListener(this)
         
         // Set click listeners for menu items
-        menuItems[0].setOnClickListener { handleRefresh() }      // Refresh
-        menuItems[1].setOnClickListener { handleSettings() }     // Settings
-        menuItems[2].setOnClickListener { handleAIChat() }       // AI Chat
-        menuItems[3].setOnClickListener { handleScanner() }      // Scanner
-        menuItems[4].setOnClickListener { handleVoiceCommand() } // Voice
+        menuItems[0].setOnClickListener { handleRefresh() }
+        menuItems[1].setOnClickListener { handleSettings() }
+        menuItems[2].setOnClickListener { handleAIChat() }
+        menuItems[3].setOnClickListener { handleScanner() }
+        menuItems[4].setOnClickListener { handleVoiceCommand() }
+
+        // Set initial colors - Black background with white icons
+        updateMenuItemsColor()
 
         windowManager.addView(overlayView, params)
     }
@@ -180,7 +180,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private fun showFloatingChatbot() {
         if (isChatbotVisible) return
 
-        // Create floating chatbot layout
         floatingChatView = LayoutInflater.from(this).inflate(R.layout.floating_chatbot_layout, null)
         
         val typeParam = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -189,31 +188,31 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
         }
 
+        // Smaller, rounded chatbot window (same size as image)
         floatingChatParams = WindowManager.LayoutParams(
-            dpToPx(320f),
-            dpToPx(480f),
+            dpToPx(280f), // Smaller width
+            dpToPx(400f), // Smaller height
             typeParam,
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT
         )
         
-        floatingChatParams?.gravity = Gravity.TOP or Gravity.START
+        floatingChatParams?.gravity = Gravity.BOTTOM or Gravity.END
         floatingChatParams?.x = dpToPx(20f)
-        floatingChatParams?.y = dpToPx(100f)
+        floatingChatParams?.y = dpToPx(20f)
 
         setupFloatingChatListeners()
         
         windowManager.addView(floatingChatView, floatingChatParams)
         isChatbotVisible = true
 
-        // Add welcome message
         addMessageToChatbot("Hello! I'm Stremini AI. How can I help you?", isUser = false)
     }
 
     private fun setupFloatingChatListeners() {
         floatingChatView?.let { view ->
-            // Make the header draggable
             val header = view.findViewById<LinearLayout>(R.id.chat_header)
             header?.setOnTouchListener { _, event ->
                 when (event.action) {
@@ -226,8 +225,8 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                     }
                     MotionEvent.ACTION_MOVE -> {
                         if (isDragging && floatingChatParams != null) {
-                            val deltaX = (event.rawX - initialTouchX).toInt()
-                            val deltaY = (event.rawY - initialTouchY).toInt()
+                            val deltaX = (initialTouchX - event.rawX).toInt()
+                            val deltaY = (initialTouchY - event.rawY).toInt()
                             
                             floatingChatParams?.x = initialX + deltaX
                             floatingChatParams?.y = initialY + deltaY
@@ -242,13 +241,11 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 true
             }
             
-            // Close button
             view.findViewById<ImageView>(R.id.btn_close_chat)?.setOnClickListener {
                 hideFloatingChatbot()
-                toggleFeature(menuItems[2].id) // Deactivate chat
+                toggleFeature(menuItems[2].id)
             }
 
-            // Send button
             view.findViewById<ImageView>(R.id.btn_send_message)?.setOnClickListener {
                 val input = view.findViewById<EditText>(R.id.et_chat_input)
                 val message = input?.text?.toString()?.trim()
@@ -256,17 +253,13 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 if (!message.isNullOrEmpty()) {
                     addMessageToChatbot(message, isUser = true)
                     input.text?.clear()
-                    
-                    // Send message to API
                     sendMessageToAPI(message)
                 }
             }
 
-            // Voice button
             view.findViewById<ImageView>(R.id.btn_voice_input)?.setOnClickListener {
                 // TODO: Implement voice input
             }
-
         }
     }
 
@@ -315,7 +308,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         floatingChatView?.let { view ->
             val messagesContainer = view.findViewById<LinearLayout>(R.id.messages_container)
             
-            // Create message view
             val messageView = LayoutInflater.from(this).inflate(
                 if (isUser) R.layout.message_bubble_user else R.layout.message_bubble_bot,
                 messagesContainer,
@@ -325,7 +317,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             messageView.findViewById<TextView>(R.id.tv_message)?.text = message
             messagesContainer?.addView(messageView)
             
-            // Scroll to bottom
             view.findViewById<ScrollView>(R.id.scroll_messages)?.post {
                 view.findViewById<ScrollView>(R.id.scroll_messages)?.fullScroll(View.FOCUS_DOWN)
             }
@@ -361,13 +352,11 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         isScannerActive = !isScannerActive
         
         if (isScannerActive) {
-            // Start scanning
             android.util.Log.d("ChatOverlay", "Starting screen scan")
             val intent = Intent(this, ScreenReaderService::class.java)
             intent.action = ScreenReaderService.ACTION_START_SCAN
             startService(intent)
         } else {
-            // Stop scanning and remove tags
             android.util.Log.d("ChatOverlay", "Stopping screen scan")
             val intent = Intent(this, ScreenReaderService::class.java)
             intent.action = ScreenReaderService.ACTION_STOP_SCAN
@@ -376,7 +365,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private fun handleVoiceCommand() {
-        // TODO: Implement voice command
         android.widget.Toast.makeText(this, "Voice command coming soon", android.widget.Toast.LENGTH_SHORT).show()
     }
 
@@ -385,15 +373,12 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private fun handleRefresh() {
-        // Clear all active features
         activeFeatures.clear()
         isScannerActive = false
         updateMenuItemsColor()
         
-        // Hide chatbot
         hideFloatingChatbot()
         
-        // Stop scanner
         val intent = Intent(this, ScreenReaderService::class.java)
         intent.action = ScreenReaderService.ACTION_STOP_SCAN
         startService(intent)
@@ -413,24 +398,17 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private fun updateMenuItemsColor() {
-        menuItems.forEachIndexed { index, item ->
-            if (activeFeatures.contains(item.id)) {
-                item.setColorFilter(android.graphics.Color.parseColor("#00D9FF"))
+        val neonBlue = android.graphics.Color.parseColor("#00D9FF")
+        val white = android.graphics.Color.parseColor("#FFFFFF")
+        
+        menuItems.forEach { item ->
+            if (activeFeatures.contains(item.id) || 
+                (item.id == menuItems[3].id && isScannerActive)) {
+                // Active: Neon blue icon
+                item.setColorFilter(neonBlue)
             } else {
-                when(index) {
-                    0 -> item.setColorFilter(android.graphics.Color.parseColor("#23A6E2")) // Refresh
-                    1 -> item.setColorFilter(android.graphics.Color.parseColor("#23A6E2")) // Settings
-                    2 -> item.setColorFilter(android.graphics.Color.parseColor("#23A6E2")) // Chat
-                    3 -> {
-                        // Scanner - show cyan when active
-                        if (isScannerActive) {
-                            item.setColorFilter(android.graphics.Color.parseColor("#00D9FF"))
-                        } else {
-                            item.setColorFilter(android.graphics.Color.parseColor("#E040FB"))
-                        }
-                    }
-                    4 -> item.setColorFilter(android.graphics.Color.parseColor("#0066FF")) // Voice
-                }
+                // Inactive: White icon
+                item.setColorFilter(white)
             }
         }
     }
@@ -443,6 +421,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 initialTouchX = event.rawX
                 initialTouchY = event.rawY
                 isDragging = false
+                hasMoved = false
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
@@ -450,8 +429,9 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 val dy = (event.rawY - initialTouchY).toInt()
 
                 if (abs(dx) > 10 || abs(dy) > 10) {
+                    hasMoved = true
                     isDragging = true
-                    if (isMenuExpanded) collapseMenu() 
+                    if (isMenuExpanded) collapseMenu()
                 }
                 
                 if (!isMenuExpanded) {
@@ -464,11 +444,13 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 return true
             }
             MotionEvent.ACTION_UP -> {
-                if (!isDragging) {
-                    toggleMenu() 
-                } else {
+                if (!hasMoved && !isDragging) {
+                    toggleMenu()
+                } else if (isDragging) {
                     snapToEdge()
                 }
+                isDragging = false
+                hasMoved = false
                 return true
             }
         }
@@ -482,16 +464,8 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private fun expandMenu() {
         isMenuExpanded = true
         
-        // Rotate main icon
-        val rotateAnimation = RotateAnimation(
-            0f, 45f,
-            Animation.RELATIVE_TO_SELF, 0.5f,
-            Animation.RELATIVE_TO_SELF, 0.5f
-        ).apply {
-            duration = 300
-            fillAfter = true
-        }
-        bubbleIcon.startAnimation(rotateAnimation)
+        // NO rotation for main icon
+        bubbleIcon.rotation = 0f
         
         val radiusPx = dpToPx(radiusDp).toFloat()
         val bubbleSizePx = dpToPx(bubbleSizeDp).toFloat()
@@ -534,39 +508,29 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 .translationX(targetX)
                 .translationY(targetY)
                 .alpha(1f)
-                .setDuration(300)
+                .setDuration(200)
                 .start()
         }
         
-        // Update colors based on active state
         updateMenuItemsColor()
     }
 
     private fun collapseMenu() {
         isMenuExpanded = false
 
-        // Rotate main icon back
-        val rotateAnimation = RotateAnimation(
-            45f, 0f,
-            Animation.RELATIVE_TO_SELF, 0.5f,
-            Animation.RELATIVE_TO_SELF, 0.5f
-        ).apply {
-            duration = 300
-            fillAfter = true
-        }
-        bubbleIcon.startAnimation(rotateAnimation)
+        // NO rotation for main icon
+        bubbleIcon.rotation = 0f
 
         for (view in menuItems) {
             view.animate()
                 .translationX(0f)
                 .translationY(0f)
                 .alpha(0f)
-                .setDuration(300)
+                .setDuration(200)
                 .withEndAction { view.visibility = View.GONE }
                 .start()
         }
         
-        // Restore window size and position after collapse animation
         overlayView.postDelayed({
             params.width = WindowManager.LayoutParams.WRAP_CONTENT
             params.height = WindowManager.LayoutParams.WRAP_CONTENT
@@ -577,24 +541,24 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             if (::overlayView.isInitialized) {
                 windowManager.updateViewLayout(overlayView, params)
             }
-        }, 300)
+        }, 200)
     }
 
     private fun snapToEdge() {
         val bubbleSizePx = dpToPx(bubbleSizeDp).toFloat()
         val screenWidth = resources.displayMetrics.widthPixels
         
-        val currentCenterX = params.x + (bubbleSizePx / 2) 
+        val currentCenterX = params.x + (bubbleSizePx / 2)
         val middle = screenWidth / 2
         
         val targetX = if (currentCenterX > middle) {
-            screenWidth - bubbleSizePx.toInt() 
+            screenWidth - bubbleSizePx.toInt()
         } else {
             0
         }
         
         params.x = targetX
-        lastCollapsedX = targetX 
+        lastCollapsedX = targetX
         windowManager.updateViewLayout(overlayView, params)
     }
 
@@ -626,7 +590,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         unregisterReceiver(controlReceiver)
         hideFloatingChatbot()
         
-        // Stop scanner service
         val intent = Intent(this, ScreenReaderService::class.java)
         intent.action = ScreenReaderService.ACTION_STOP_SCAN
         startService(intent)
