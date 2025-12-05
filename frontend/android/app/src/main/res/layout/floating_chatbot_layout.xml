@@ -13,36 +13,36 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:background="#111111"
-        android:padding="12dp"
+        android:padding="10dp"
         android:gravity="center_vertical">
 
-        <!-- AI Icon -->
+        <!-- AI Icon (Smaller) -->
         <ImageView
-            android:layout_width="30dp"
-            android:layout_height="30dp"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
             android:src="@drawable/new_logo"
-            android:padding="4dp"
+            android:padding="3dp"
             android:background="@drawable/circle_bg_rounded"/>
 
-        <!-- Title -->
+        <!-- Title (Smaller) -->
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Stremini AI"
             android:textColor="#FFFFFF"
-            android:textSize="16sp"
+            android:textSize="14sp"
             android:textStyle="bold"
-            android:layout_marginStart="10dp"/>
+            android:layout_marginStart="8dp"/>
 
-        <!-- Close Button -->
+        <!-- Close Button (Smaller) -->
         <ImageView
             android:id="@+id/btn_close_chat"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
             android:tint="#FF5555"
-            android:padding="4dp"
+            android:padding="3dp"
             android:contentDescription="Close"/>
     </LinearLayout>
 
@@ -53,7 +53,7 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:background="#000000"
-        android:padding="12dp"
+        android:padding="10dp"
         android:scrollbars="vertical"
         android:fadeScrollbars="false">
 
@@ -71,22 +71,22 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:background="#111111"
-        android:padding="10dp"
+        android:padding="8dp"
         android:gravity="center_vertical">
 
-        <!-- Voice Input Button -->
+        <!-- Voice Input Button (Smaller) -->
         <ImageView
             android:id="@+id/btn_voice_input"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:src="@android:drawable/ic_btn_speak_now"
             android:tint="#23A6E2"
-            android:padding="6dp"
+            android:padding="5dp"
             android:background="@drawable/circle_bg_blue"
             android:contentDescription="Voice Input"
-            android:layout_marginEnd="8dp"/>
+            android:layout_marginEnd="6dp"/>
 
-        <!-- Text Input -->
+        <!-- Text Input (Smaller) -->
         <EditText
             android:id="@+id/et_chat_input"
             android:layout_width="0dp"
@@ -95,22 +95,22 @@
             android:hint="Ask anything..."
             android:textColorHint="#666666"
             android:textColor="#FFFFFF"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:background="@drawable/input_bg"
-            android:padding="10dp"
-            android:maxLines="4"
+            android:padding="8dp"
+            android:maxLines="3"
             android:inputType="textMultiLine|textCapSentences"/>
 
-        <!-- Send Button -->
+        <!-- Send Button (Smaller) -->
         <ImageView
             android:id="@+id/btn_send_message"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:src="@android:drawable/ic_menu_send"
             android:tint="#FFFFFF"
-            android:padding="8dp"
+            android:padding="6dp"
             android:background="@drawable/send_button_bg"
             android:contentDescription="Send"
-            android:layout_marginStart="8dp"/>
+            android:layout_marginStart="6dp"/>
     </LinearLayout>
 </LinearLayout>
