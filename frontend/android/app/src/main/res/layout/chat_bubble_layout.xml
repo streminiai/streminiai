@@ -3,7 +3,7 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content">
 
-    <!-- Main Bubble Icon -->
+    <!-- Main Bubble Icon (No rotation) -->
     <ImageView
         android:id="@+id/bubble_icon"
         android:layout_width="60dp"
@@ -16,20 +16,20 @@
         android:elevation="10dp"
         />
 
-    <!-- Menu Items (Initially Hidden) -->
+    <!-- Menu Items (Initially Hidden) with BLACK backgrounds -->
     
     <!-- AI Chat Button -->
     <ImageView
         android:id="@+id/btn_ai"
         android:layout_width="50dp"
         android:layout_height="50dp"
-        android:background="@drawable/circle_bg_blue"
+        android:background="@drawable/circle_bg_black"
         android:src="@drawable/chatbot"
         android:padding="12dp"
         android:contentDescription="chatbot"
         android:layout_gravity="center"
         android:elevation="8dp"
-        android:tint="#ffffffff"
+        android:tint="#FFFFFF"
         android:visibility="gone"/>
 
     <!-- Scanner Button -->
@@ -37,13 +37,13 @@
         android:id="@+id/btn_scanner"
         android:layout_width="50dp"
         android:layout_height="50dp"
-        android:background="@drawable/circle_bg_blue"
+        android:background="@drawable/circle_bg_black"
         android:src="@drawable/shield"
         android:padding="10dp"
         android:contentDescription="Screen Scanner"
         android:layout_gravity="center"
         android:elevation="8dp"
-        android:tint="#ffffffff"
+        android:tint="#FFFFFF"
         android:visibility="gone"/>
 
     <!-- Voice Commands Button -->
@@ -51,13 +51,13 @@
         android:id="@+id/btn_keyboard"
         android:layout_width="50dp"
         android:layout_height="50dp"
-        android:background="@drawable/circle_bg_blue"
+        android:background="@drawable/circle_bg_black"
         android:src="@drawable/keyboard"
         android:padding="12dp"
         android:contentDescription="Voice Commands"
         android:layout_gravity="center"
         android:elevation="8dp"
-        android:tint="#ffffffff"
+        android:tint="#FFFFFF"
         android:visibility="gone"/>
 
     <!-- Settings Button -->
@@ -65,27 +65,27 @@
         android:id="@+id/btn_settings"
         android:layout_width="50dp"
         android:layout_height="50dp"
-        android:background="@drawable/circle_bg_blue"
+        android:background="@drawable/circle_bg_black"
         android:src="@drawable/settings"
         android:padding="12dp"
         android:contentDescription="Settings"
         android:layout_gravity="center"
         android:elevation="8dp"
-        android:tint="#ffffffff"
+        android:tint="#FFFFFF"
         android:visibility="gone"/>
 
-    <!-- Refresh Button (actually ai voice control)-->
+    <!-- Refresh Button -->
     <ImageView
         android:id="@+id/btn_refresh"
         android:layout_width="50dp"
         android:layout_height="50dp"
-        android:background="@drawable/circle_bg_blue"
+        android:background="@drawable/circle_bg_black"
         android:src="@drawable/ai_chatbot"
         android:padding="12dp"
         android:contentDescription="Refresh"
         android:layout_gravity="center"
         android:elevation="8dp"
-        android:tint="#ffffffff"
+        android:tint="#FFFFFF"
         android:visibility="gone"/>
 
 </FrameLayout>
