@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
+    
+    <!-- Black background -->
     <solid android:color="#000000" />
-    <corners android:radius="28dp" />
+    
+    <!-- VERY ROUNDED corners like in the image - 40dp for pill shape -->
+    <corners android:radius="40dp" />
+    
+    <!-- Blue border around the chatbot -->
     <stroke
         android:width="2dp"
         android:color="#23A6E2" />
