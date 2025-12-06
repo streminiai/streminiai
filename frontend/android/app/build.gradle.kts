@@ -10,12 +10,12 @@ android {
     ndkVersion = "29.0.14206865"
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_21.toString()
+        jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
     defaultConfig {
@@ -25,7 +25,6 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         
-        // Add this to help with Play Protection
         vectorDrawables.useSupportLibrary = true
         multiDexEnabled = true
     }
@@ -50,7 +49,6 @@ android {
         }
     }
     
-    // Add this for better compatibility
     packagingOptions {
         resources.excludes.add("META-INF/DEPENDENCIES")
         resources.excludes.add("META-INF/LICENSE")
@@ -68,6 +66,5 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("org.json:json:20231013")
     implementation("androidx.core:core-ktx:1.13.1")
-    // Play Core for split install support
     implementation("com.google.android.play:core:1.10.3")
 }
