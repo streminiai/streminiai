@@ -54,17 +54,16 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private val activeFeatures = mutableSetOf<Int>()
     private var isScannerActive = false
 
-    // Drag Logic Variables - IMPROVED
+    // Drag Logic Variables
     private var initialX = 0
     private var initialY = 0
     private var initialTouchX = 0f
     private var initialTouchY = 0f
     private var isDragging = false
     private var hasMoved = false
-    private var touchStartTime = 0L
 
-    // Configuration - INCREASED SIZES for better quality
-    private val bubbleSizeDp = 70f  // Slightly smaller for smoother performance
+    // Configuration
+    private val bubbleSizeDp = 70f
     private val menuItemSizeDp = 56f
     private val radiusDp = 110f
 
@@ -143,7 +142,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             typeParam,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or 
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,  // CRITICAL for smooth rendering
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT
         )
         params.gravity = Gravity.TOP or Gravity.START
@@ -152,14 +151,29 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
         bubbleIcon.setOnTouchListener(this)
         
-        // Set click listeners
-        menuItems[0].setOnClickListener { handleRefresh() }
-        menuItems[1].setOnClickListener { handleSettings() }
-        menuItems[2].setOnClickListener { handleAIChat() }
-        menuItems[3].setOnClickListener { handleScanner() }
-        menuItems[4].setOnClickListener { handleVoiceCommand() }
+        // Set click listeners for menu items
+        menuItems[0].setOnClickListener { 
+            collapseMenu()
+            handleRefresh() 
+        }
+        menuItems[1].setOnClickListener { 
+            collapseMenu()
+            handleSettings() 
+        }
+        menuItems[2].setOnClickListener { 
+            collapseMenu()
+            handleAIChat() 
+        }
+        menuItems[3].setOnClickListener { 
+            collapseMenu()
+            handleScanner() 
+        }
+        menuItems[4].setOnClickListener { 
+            collapseMenu()
+            handleVoiceCommand() 
+        }
 
-        // IMPORTANT: Force high quality rendering
+        // Hardware acceleration for smooth rendering
         bubbleIcon.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         menuItems.forEach { it.setLayerType(View.LAYER_TYPE_HARDWARE, null) }
 
@@ -188,14 +202,13 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
         }
 
-        // ROUNDED CHATBOT - adjusted dimensions
         floatingChatParams = WindowManager.LayoutParams(
-            dpToPx(300f), // Width
-            dpToPx(400f), // Height
+            dpToPx(300f),
+            dpToPx(400f),
             typeParam,
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
-            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,  // CRITICAL
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT
         )
         
@@ -203,7 +216,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         floatingChatParams?.x = dpToPx(20f)
         floatingChatParams?.y = dpToPx(100f)
 
-        // Force hardware acceleration for smooth rendering
         floatingChatView?.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
         setupFloatingChatListeners()
@@ -418,7 +430,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         }
     }
 
-    // IMPROVED TOUCH HANDLING - Much smoother
     override fun onTouch(v: View, event: MotionEvent): Boolean {
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
@@ -428,36 +439,29 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 initialTouchY = event.rawY
                 isDragging = false
                 hasMoved = false
-                touchStartTime = System.currentTimeMillis()
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
                 val dx = (event.rawX - initialTouchX).toInt()
                 val dy = (event.rawY - initialTouchY).toInt()
 
-                // Only consider it moved if distance > 15px (prevents accidental drags)
-                if (abs(dx) > 15 || abs(dy) > 15) {
+                if (abs(dx) > 10 || abs(dy) > 10) {
                     hasMoved = true
                     isDragging = true
                     if (isMenuExpanded) collapseMenu()
                 }
                 
-                if (isDragging && !isMenuExpanded) {
+                if (!isMenuExpanded && isDragging) {
                     params.x = initialX + dx
                     params.y = initialY + dy
                     lastCollapsedX = params.x
                     lastCollapsedY = params.y
-                    
-                    // SMOOTH UPDATE - throttle updates for better performance
                     windowManager.updateViewLayout(overlayView, params)
                 }
                 return true
             }
             MotionEvent.ACTION_UP -> {
-                val touchDuration = System.currentTimeMillis() - touchStartTime
-                
-                // If it's a quick tap (< 200ms) and not moved much, treat as click
-                if (!hasMoved && touchDuration < 200) {
+                if (!hasMoved && !isDragging) {
                     toggleMenu()
                 } else if (isDragging) {
                     snapToEdge()
@@ -514,12 +518,11 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             val targetX = (radiusPx * cos(rad)).toFloat()
             val targetY = (radiusPx * -sin(rad)).toFloat()
 
-            // SMOOTH ANIMATION with proper interpolator
             view.animate()
                 .translationX(targetX)
                 .translationY(targetY)
                 .alpha(1f)
-                .setDuration(250)  // Slightly longer for smoothness
+                .setDuration(200)
                 .setInterpolator(android.view.animation.DecelerateInterpolator())
                 .start()
         }
@@ -535,7 +538,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 .translationX(0f)
                 .translationY(0f)
                 .alpha(0f)
-                .setDuration(200)
+                .setDuration(150)
                 .setInterpolator(android.view.animation.AccelerateInterpolator())
                 .withEndAction { view.visibility = View.GONE }
                 .start()
@@ -551,7 +554,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             if (::overlayView.isInitialized) {
                 windowManager.updateViewLayout(overlayView, params)
             }
-        }, 200)
+        }, 150)
     }
 
     private fun snapToEdge() {
@@ -567,9 +570,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             0
         }
         
-        // SMOOTH SNAP with animation
-        val startX = params.x
-        android.animation.ValueAnimator.ofInt(startX, targetX).apply {
+        android.animation.ValueAnimator.ofInt(params.x, targetX).apply {
             duration = 150
             interpolator = android.view.animation.DecelerateInterpolator()
             addUpdateListener { animator ->
