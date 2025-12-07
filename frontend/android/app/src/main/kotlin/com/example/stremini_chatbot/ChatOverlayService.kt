@@ -11,6 +11,7 @@ import android.content.IntentFilter
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -102,7 +103,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                     }
                 }
                 ScreenReaderService.ACTION_SCAN_COMPLETE -> {
-                    android.util.Log.d("ChatOverlay", "Scan complete received")
+                    Log.d("ChatOverlay", "Scan complete received")
                 }
             }
         }
@@ -122,8 +123,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
         val filter = IntentFilter().apply {
             addAction(ACTION_SEND_MESSAGE)
-            // Assuming ScreenReaderService and its constants are defined elsewhere
-            // addAction(ScreenReaderService.ACTION_SCAN_COMPLETE)
+            addAction(ScreenReaderService.ACTION_SCAN_COMPLETE)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(controlReceiver, filter, RECEIVER_NOT_EXPORTED)
@@ -133,7 +133,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private fun setupOverlay() {
-        // Use an existing layout for demonstration, assuming R.layout.chat_bubble_layout is your container
         overlayView = LayoutInflater.from(this).inflate(R.layout.chat_bubble_layout, null)
         bubbleIcon = overlayView.findViewById(R.id.bubble_icon)
 
@@ -157,7 +156,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             WindowManager.LayoutParams.WRAP_CONTENT,
             typeParam,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or // Allow movement outside bounds
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
                     WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT
         )
@@ -210,7 +209,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private fun showFloatingChatbot() {
         if (isChatbotVisible) return
 
-        // Assuming R.layout.floating_chatbot_layout is defined
         floatingChatView = LayoutInflater.from(this).inflate(R.layout.floating_chatbot_layout, null)
 
         val typeParam = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -263,13 +261,11 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                     }
                     MotionEvent.ACTION_MOVE -> {
                         if (chatIsDragging && floatingChatParams != null) {
-                            // NOTE: For floating chat, you should calculate delta from raw coordinates
-                            // and update the X/Y of the parameters (which represent the top-left corner)
                             val deltaX = (event.rawX - chatInitialTouchX).toInt()
                             val deltaY = (event.rawY - chatInitialTouchY).toInt()
 
-                            floatingChatParams?.x = chatInitialX - deltaX // Corrected sign for Gravity.END
-                            floatingChatParams?.y = chatInitialY - deltaY // Corrected sign for Gravity.BOTTOM
+                            floatingChatParams?.x = chatInitialX - deltaX
+                            floatingChatParams?.y = chatInitialY - deltaY
 
                             windowManager.updateViewLayout(floatingChatView!!, floatingChatParams!!)
                         }
@@ -348,7 +344,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         floatingChatView?.let { view ->
             val messagesContainer = view.findViewById<LinearLayout>(R.id.messages_container)
 
-            // Assuming message_bubble_user and message_bubble_bot are defined
             val messageView = LayoutInflater.from(this).inflate(
                 if (isUser) R.layout.message_bubble_user else R.layout.message_bubble_bot,
                 messagesContainer,
@@ -376,13 +371,11 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private fun handleScanner() {
-        // NOTE: ScreenReaderService logic is commented out to allow compilation.
-        /*
         if (!ScreenReaderService.isRunning(this)) {
-            android.widget.Toast.makeText(
+            Toast.makeText(
                 this,
                 "Please enable 'Stremini Screen Scanner' in Accessibility Settings",
-                android.widget.Toast.LENGTH_LONG
+                Toast.LENGTH_LONG
             ).show()
 
             val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
@@ -390,17 +383,14 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             startActivity(intent)
             return
         }
-        */
 
         toggleFeature(menuItems[3].id)
         isScannerActive = !isScannerActive
 
-        // NOTE: ScreenReaderService logic is commented out to allow compilation.
-        /*
         val intent = Intent(this, ScreenReaderService::class.java)
         intent.action = if (isScannerActive) ScreenReaderService.ACTION_START_SCAN else ScreenReaderService.ACTION_STOP_SCAN
         startService(intent)
-        */
+        
         Toast.makeText(this, if (isScannerActive) "Scanner ON" else "Scanner OFF", Toast.LENGTH_SHORT).show()
     }
 
@@ -419,12 +409,10 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
         hideFloatingChatbot()
 
-        // NOTE: ScreenReaderService logic is commented out to allow compilation.
-        /*
         val intent = Intent(this, ScreenReaderService::class.java)
         intent.action = ScreenReaderService.ACTION_STOP_SCAN
         startService(intent)
-        */
+        
         Toast.makeText(this, "Refresh Done", Toast.LENGTH_SHORT).show()
     }
 
@@ -455,7 +443,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     override fun onTouch(v: View, event: MotionEvent): Boolean {
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
-                // IMPORTANT: Use the current parameters as the initial position
                 initialX = params.x
                 initialY = params.y
                 initialTouchX = event.rawX
@@ -470,14 +457,12 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
                 if (abs(dx) > 10 || abs(dy) > 10) {
                     hasMoved = true
-                    // Only start dragging if the menu is NOT expanded
                     if (!isMenuExpanded) {
                         isDragging = true
                         params.x = initialX + dx
                         params.y = initialY + dy
                         windowManager.updateViewLayout(overlayView, params)
                     } else {
-                        // If menu is expanded, collapse it immediately on drag attempt
                         collapseMenu()
                     }
                 }
@@ -487,7 +472,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 if (!hasMoved && !isDragging) {
                     toggleMenu()
                 } else if (isDragging) {
-                    // Update last collapsed position before snapping
                     lastCollapsedX = params.x
                     lastCollapsedY = params.y
                     snapToEdge()
@@ -509,23 +493,16 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
         val radiusPx = dpToPx(radiusDp).toFloat()
         val bubbleSizePx = dpToPx(bubbleSizeDp).toFloat()
-        val menuItemSizePx = dpToPx(menuItemSizeDp).toFloat()
 
-        // The new required width/height for the container
         val expandedWindowSizePx = (radiusPx * 2) + bubbleSizePx
-        // The offset needed to keep the bubble icon centered at its original collapsed position
         val offsetPx = (expandedWindowSizePx / 2) - (bubbleSizePx / 2)
 
-        // Store current collapsed position (top-left of bubble)
         val currentCollapsedX = params.x
         val currentCollapsedY = params.y
 
-        // 1. Update params size
         params.width = expandedWindowSizePx.toInt()
         params.height = expandedWindowSizePx.toInt()
 
-        // 2. Reposition params to keep the bubble icon centered.
-        // The new top-left corner of the larger container must be offset.
         params.x = currentCollapsedX - offsetPx.toInt()
         params.y = currentCollapsedY - offsetPx.toInt()
 
@@ -535,7 +512,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         val bubbleCenterX = currentCollapsedX + (bubbleSizePx / 2)
         val isOnRightSide = bubbleCenterX > (screenWidth / 2)
 
-        // Adjust angles based on side to ensure the menu is visible
         val startAngle = if (isOnRightSide) 90.0 else -90.0
         val endAngle = if (isOnRightSide) 270.0 else 90.0
         val angleRange = endAngle - startAngle
@@ -548,8 +524,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             val angle = startAngle + (index * step)
             val rad = Math.toRadians(angle)
 
-            // The target X/Y is relative to the center of the large container,
-            // which is offset by (expandedWindowSizePx/2 - bubbleSizePx/2) from the bubble's top-left corner.
             val targetX = (radiusPx * cos(rad)).toFloat() + offsetPx
             val targetY = (radiusPx * -sin(rad)).toFloat() + offsetPx
 
@@ -579,18 +553,20 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 .start()
         }
 
-        // Delay the container size change until after the menu items have started moving back
         overlayView.postDelayed({
-            if (!isMenuExpanded) { // Only collapse if not re-expanded during delay
+            if (!isMenuExpanded) {
                 params.width = WindowManager.LayoutParams.WRAP_CONTENT
                 params.height = WindowManager.LayoutParams.WRAP_CONTENT
 
-                // Reset position to the last known collapsed position
                 params.x = lastCollapsedX
                 params.y = lastCollapsedY
 
-                if (::overlayView.isInitialized && overlayView.windowToken != null) {
-                    windowManager.updateViewLayout(overlayView, params)
+                try {
+                    if (::overlayView.isInitialized && overlayView.windowToken != null) {
+                        windowManager.updateViewLayout(overlayView, params)
+                    }
+                } catch (e: Exception) {
+                    Log.e("ChatOverlay", "Error updating view layout", e)
                 }
             }
         }, 150)
@@ -605,9 +581,9 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         val middle = screenWidth / 2
 
         val targetX = if (currentCenterX > middle) {
-            screenWidth - bubbleSizePx.toInt() // Snap to right edge
+            screenWidth - bubbleSizePx.toInt()
         } else {
-            0 // Snap to left edge
+            0
         }
 
         ValueAnimator.ofInt(params.x, targetX).apply {
@@ -623,7 +599,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private fun openMainApp() {
-        // Assuming MainActivity is defined
         val intent = Intent(this, MainActivity::class.java)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or
                 Intent.FLAG_ACTIVITY_SINGLE_TOP or
@@ -640,7 +615,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Stremini AI")
             .setContentText("Active - Tap to open")
-            // Assuming R.mipmap.ic_launcher is defined
             .setSmallIcon(R.mipmap.ic_launcher)
             .build()
         startForeground(1, notification)
@@ -649,16 +623,27 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     override fun onDestroy() {
         super.onDestroy()
         serviceScope.cancel()
-        if (::controlReceiver.isInitialized) unregisterReceiver(controlReceiver)
+        
+        try {
+            if (::controlReceiver.isInitialized) {
+                unregisterReceiver(controlReceiver)
+            }
+        } catch (e: Exception) {
+            Log.e("ChatOverlay", "Error unregistering receiver", e)
+        }
+        
         hideFloatingChatbot()
 
-        // NOTE: ScreenReaderService logic is commented out to allow compilation.
-        /*
         val intent = Intent(this, ScreenReaderService::class.java)
         intent.action = ScreenReaderService.ACTION_STOP_SCAN
         startService(intent)
-        */
 
-        if (::overlayView.isInitialized && overlayView.windowToken != null) windowManager.removeView(overlayView)
+        try {
+            if (::overlayView.isInitialized && overlayView.windowToken != null) {
+                windowManager.removeView(overlayView)
+            }
+        } catch (e: Exception) {
+            Log.e("ChatOverlay", "Error removing overlay view", e)
+        }
     }
 }
