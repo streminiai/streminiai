@@ -1,5 +1,6 @@
 package com.example.stremini_chatbot
 
+import android.animation.Animator
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
@@ -610,7 +611,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         val step = angleRange / (menuItems.size - 1)
 
         val animatorSet = AnimatorSet()
-        val animators = mutableListOf<ObjectAnimator>()
+        val animators = mutableListOf<Animator>()
 
         for ((index, item) in menuItems.withIndex()) {
             item.visibility = View.VISIBLE
@@ -635,7 +636,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             animators.addAll(listOf(animX, animY, animAlpha, animScaleX, animScaleY))
         }
 
-        animatorSet.playTogether(animators)
+        animatorSet.playTogether(animators as Collection<Animator>)
         animatorSet.duration = 300
         animatorSet.interpolator = OvershootInterpolator(1.5f)
         animatorSet.start()
@@ -655,7 +656,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         Log.d(TAG, "Collapsing menu")
 
         val animatorSet = AnimatorSet()
-        val animators = mutableListOf<ObjectAnimator>()
+        val animators = mutableListOf<Animator>()
 
         for (item in menuItems) {
             val animX = ObjectAnimator.ofFloat(item, "translationX", item.translationX, 0f)
@@ -667,7 +668,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             animators.addAll(listOf(animX, animY, animAlpha, animScaleX, animScaleY))
         }
 
-        animatorSet.playTogether(animators)
+        animatorSet.playTogether(animators as Collection<Animator>)
         animatorSet.duration = 200
         animatorSet.interpolator = AccelerateDecelerateInterpolator()
         animatorSet.start()
