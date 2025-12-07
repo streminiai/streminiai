@@ -21,8 +21,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _hasOverlayPermission = false;
   bool _hasAccessibilityPermission = false;
   bool _checkingPermission = false;
-  int _threatsBlocked = 24;
-  int _protectionRate = 99;
 
   @override
   void initState() {
@@ -167,7 +165,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       MaterialPageRoute(builder: (context) => const ChatScreen()),
     );
   }
-// <---------- greeting logic ---------->
+
   String _getGreeting() {
     final hour = DateTime.now().hour;
     if (hour < 12) {
@@ -286,7 +284,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Your AI assistant is ready',
+                    'Your AI-powered scam protection is ready',
                     style: TextStyle(
                       color: Colors.grey[400],
                       fontSize: 14,
@@ -294,40 +292,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ],
               ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Stats Row
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    value: '$_threatsBlocked',
-                    label: 'Threats\nBlocked',
-                    icon: Icons.shield_outlined,
-                    color: const Color(0xFF23A6E2),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    value: 'AI',
-                    label: 'Always\nActive',
-                    icon: Icons.auto_awesome,
-                    color: const Color(0xFFAA75F4),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    value: '$_protectionRate%',
-                    label: 'Protection\nRate',
-                    icon: Icons.verified_user,
-                    color: const Color(0xFF0066FF),
-                  ),
-                ),
-              ],
             ),
 
             const SizedBox(height: 32),
@@ -346,9 +310,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
             // Smart Chatbot Card
             _buildFeatureCard(
-              title: 'Smart Chatbot',
+              title: 'Smart Chatbot & Scam Detector',
               description:
-                  'HTML-style floating AI assistant with chat & screen analyzer. Works over all apps!',
+                  'Floating AI assistant with intelligent screen analyzer. Works system-wide across all apps!',
               icon: Icons.chat_bubble_outline,
               iconColor: const Color(0xFF23A6E2),
               status: bubbleActive ? 'Active' : 'Inactive',
@@ -356,8 +320,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               badges: const [
                 'Floating Chat',
                 'Screen Scanner',
-                'System-Wide',
-                'HTML Style'
+                'Scam Detection',
+                'System-Wide'
               ],
               trailing: Switch(
                 value: bubbleActive,
@@ -405,8 +369,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildInfoStep(
                       '3', 'Select Scanner icon to analyze screen for scams'),
                   _buildInfoStep(
-                      '4', 'Tags will appear near suspicious content'),
-                  _buildInfoStep('5', 'Tap scanner again to hide tags'),
+                      '4', 'AI will show tags near suspicious content (Scam, Safe, Tone, etc.)'),
+                  _buildInfoStep('5', 'Tap tags to see why content is flagged'),
+                  _buildInfoStep('6', 'Tap scanner again to hide all tags'),
                 ],
               ),
             ),
@@ -548,46 +513,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       onTap: onTap,
-    );
-  }
-
-  Widget _buildStatCard({
-    required String value,
-    required String label,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[900],
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[800]!),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 11,
-              height: 1.2,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
