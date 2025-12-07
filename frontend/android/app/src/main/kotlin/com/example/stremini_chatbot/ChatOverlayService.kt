@@ -51,16 +51,16 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private lateinit var windowManager: WindowManager
-    private lateinit var overlayView: View
-    private lateinit var params: WindowManager.LayoutParams
+    private var overlayView: View? = null
+    private var params: WindowManager.LayoutParams? = null
 
     // Floating Chatbot Window
     private var floatingChatView: View? = null
     private var floatingChatParams: WindowManager.LayoutParams? = null
     private var isChatbotVisible = false
 
-    private lateinit var bubbleIcon: ImageView
-    private lateinit var menuItems: List<ImageView>
+    private var bubbleIcon: ImageView? = null
+    private var menuItems: List<ImageView> = emptyList()
     private var isMenuExpanded = false
     private var isAnimating = false // Prevent animation conflicts
 
@@ -134,15 +134,15 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
     private fun setupOverlay() {
         overlayView = LayoutInflater.from(this).inflate(R.layout.chat_bubble_layout, null)
-        bubbleIcon = overlayView.findViewById(R.id.bubble_icon)
+        bubbleIcon = overlayView?.findViewById(R.id.bubble_icon)
 
         menuItems = listOf(
-            overlayView.findViewById(R.id.btn_refresh),
-            overlayView.findViewById(R.id.btn_settings),
-            overlayView.findViewById(R.id.btn_ai),
-            overlayView.findViewById(R.id.btn_scanner),
-            overlayView.findViewById(R.id.btn_keyboard)
-        )
+            overlayView?.findViewById(R.id.btn_refresh),
+            overlayView?.findViewById(R.id.btn_settings),
+            overlayView?.findViewById(R.id.btn_ai),
+            overlayView?.findViewById(R.id.btn_scanner),
+            overlayView?.findViewById(R.id.btn_keyboard)
+        ).filterNotNull()
 
         val typeParam = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -159,38 +159,38 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                     WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT
         )
-        params.gravity = Gravity.TOP or Gravity.START
-        params.x = lastCollapsedX
-        params.y = lastCollapsedY
+        params?.gravity = Gravity.TOP or Gravity.START
+        params?.x = lastCollapsedX
+        params?.y = lastCollapsedY
 
-        bubbleIcon.setOnTouchListener(this)
+        bubbleIcon?.setOnTouchListener(this)
 
         // Set click listeners for menu items
-        menuItems[0].setOnClickListener {
+        menuItems.getOrNull(0)?.setOnClickListener {
             if (!isAnimating) {
                 collapseMenu()
                 handleRefresh()
             }
         }
-        menuItems[1].setOnClickListener {
+        menuItems.getOrNull(1)?.setOnClickListener {
             if (!isAnimating) {
                 collapseMenu()
                 handleSettings()
             }
         }
-        menuItems[2].setOnClickListener {
+        menuItems.getOrNull(2)?.setOnClickListener {
             if (!isAnimating) {
                 collapseMenu()
                 handleAIChat()
             }
         }
-        menuItems[3].setOnClickListener {
+        menuItems.getOrNull(3)?.setOnClickListener {
             if (!isAnimating) {
                 collapseMenu()
                 handleScanner()
             }
         }
-        menuItems[4].setOnClickListener {
+        menuItems.getOrNull(4)?.setOnClickListener {
             if (!isAnimating) {
                 collapseMenu()
                 handleVoiceCommand()
@@ -198,7 +198,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         }
 
         // Hardware acceleration + better rendering
-        bubbleIcon.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        bubbleIcon?.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         menuItems.forEach { 
             it.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             // Ensure proper scaling for crisp icons
@@ -206,13 +206,18 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         }
 
         updateMenuItemsColor()
-        windowManager.addView(overlayView, params)
+        overlayView?.let { view ->
+            params?.let { p ->
+                windowManager.addView(view, p)
+            }
+        }
     }
 
     private fun handleAIChat() {
-        toggleFeature(menuItems[2].id)
+        val chatIconId = menuItems.getOrNull(2)?.id ?: return
+        toggleFeature(chatIconId)
 
-        if (isFeatureActive(menuItems[2].id)) {
+        if (isFeatureActive(chatIconId)) {
             showFloatingChatbot()
         } else {
             hideFloatingChatbot()
@@ -248,7 +253,11 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
         setupFloatingChatListeners()
 
-        windowManager.addView(floatingChatView, floatingChatParams)
+        floatingChatView?.let { view ->
+            floatingChatParams?.let { params ->
+                windowManager.addView(view, params)
+            }
+        }
         isChatbotVisible = true
 
         addMessageToChatbot("Hello! I'm Stremini AI. How can I help you?", isUser = false)
@@ -280,7 +289,11 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                             floatingChatParams?.x = chatInitialX - deltaX
                             floatingChatParams?.y = chatInitialY - deltaY
 
-                            windowManager.updateViewLayout(floatingChatView!!, floatingChatParams!!)
+                            floatingChatView?.let { v ->
+                                floatingChatParams?.let { p ->
+                                    windowManager.updateViewLayout(v, p)
+                                }
+                            }
                         }
                     }
                     MotionEvent.ACTION_UP -> {
@@ -292,7 +305,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
             view.findViewById<ImageView>(R.id.btn_close_chat)?.setOnClickListener {
                 hideFloatingChatbot()
-                toggleFeature(menuItems[2].id)
+                menuItems.getOrNull(2)?.id?.let { toggleFeature(it) }
             }
 
             view.findViewById<ImageView>(R.id.btn_send_message)?.setOnClickListener {
@@ -397,7 +410,8 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             return
         }
 
-        toggleFeature(menuItems[3].id)
+        val scannerIconId = menuItems.getOrNull(3)?.id ?: return
+        toggleFeature(scannerIconId)
         isScannerActive = !isScannerActive
 
         val intent = Intent(this, ScreenReaderService::class.java)
@@ -443,9 +457,10 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private fun updateMenuItemsColor() {
+        val scannerIconId = menuItems.getOrNull(3)?.id
         menuItems.forEach { item ->
             if (activeFeatures.contains(item.id) ||
-                (item.id == menuItems[3].id && isScannerActive)) {
+                (item.id == scannerIconId && isScannerActive)) {
                 item.setColorFilter(NEON_BLUE)
             } else {
                 item.setColorFilter(WHITE)
@@ -456,8 +471,10 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     override fun onTouch(v: View, event: MotionEvent): Boolean {
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
-                initialX = params.x
-                initialY = params.y
+                params?.let { p ->
+                    initialX = p.x
+                    initialY = p.y
+                }
                 initialTouchX = event.rawX
                 initialTouchY = event.rawY
                 isDragging = false
@@ -472,9 +489,13 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                     hasMoved = true
                     if (!isMenuExpanded && !isAnimating) {
                         isDragging = true
-                        params.x = initialX + dx
-                        params.y = initialY + dy
-                        windowManager.updateViewLayout(overlayView, params)
+                        params?.x = initialX + dx
+                        params?.y = initialY + dy
+                        overlayView?.let { view ->
+                            params?.let { p ->
+                                windowManager.updateViewLayout(view, p)
+                            }
+                        }
                     } else if (isMenuExpanded && !isAnimating) {
                         collapseMenu()
                     }
@@ -485,8 +506,10 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 if (!hasMoved && !isDragging && !isAnimating) {
                     toggleMenu()
                 } else if (isDragging && !isAnimating) {
-                    lastCollapsedX = params.x
-                    lastCollapsedY = params.y
+                    params?.let { p ->
+                        lastCollapsedX = p.x
+                        lastCollapsedY = p.y
+                    }
                     snapToEdge()
                 }
                 isDragging = false
@@ -513,16 +536,20 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         val expandedWindowSizePx = (radiusPx * 2) + bubbleSizePx
         val offsetPx = (expandedWindowSizePx / 2) - (bubbleSizePx / 2)
 
-        val currentCollapsedX = params.x
-        val currentCollapsedY = params.y
+        val currentCollapsedX = params?.x ?: 0
+        val currentCollapsedY = params?.y ?: 0
 
-        params.width = expandedWindowSizePx.toInt()
-        params.height = expandedWindowSizePx.toInt()
+        params?.width = expandedWindowSizePx.toInt()
+        params?.height = expandedWindowSizePx.toInt()
 
-        params.x = currentCollapsedX - offsetPx.toInt()
-        params.y = currentCollapsedY - offsetPx.toInt()
+        params?.x = currentCollapsedX - offsetPx.toInt()
+        params?.y = currentCollapsedY - offsetPx.toInt()
 
-        windowManager.updateViewLayout(overlayView, params)
+        overlayView?.let { view ->
+            params?.let { p ->
+                windowManager.updateViewLayout(view, p)
+            }
+        }
 
         val screenWidth = resources.displayMetrics.widthPixels
         val bubbleCenterX = currentCollapsedX + (bubbleSizePx / 2)
@@ -587,17 +614,21 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 .start()
         }
 
-        overlayView.postDelayed({
+        overlayView?.postDelayed({
             if (!isMenuExpanded) {
-                params.width = WindowManager.LayoutParams.WRAP_CONTENT
-                params.height = WindowManager.LayoutParams.WRAP_CONTENT
+                params?.width = WindowManager.LayoutParams.WRAP_CONTENT
+                params?.height = WindowManager.LayoutParams.WRAP_CONTENT
 
-                params.x = lastCollapsedX
-                params.y = lastCollapsedY
+                params?.x = lastCollapsedX
+                params?.y = lastCollapsedY
 
                 try {
-                    if (overlayView.windowToken != null) {
-                        windowManager.updateViewLayout(overlayView, params)
+                    overlayView?.let { view ->
+                        if (view.windowToken != null) {
+                            params?.let { p ->
+                                windowManager.updateViewLayout(view, p)
+                            }
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("ChatOverlay", "Error updating view layout", e)
@@ -610,7 +641,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         val bubbleSizePx = dpToPx(bubbleSizeDp).toFloat()
         val screenWidth = resources.displayMetrics.widthPixels
 
-        val currentX = params.x
+        val currentX = params?.x ?: 0
         val currentCenterX = currentX + (bubbleSizePx / 2)
         val middle = screenWidth / 2
 
@@ -620,13 +651,17 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             0
         }
 
-        ValueAnimator.ofInt(params.x, targetX).apply {
+        ValueAnimator.ofInt(currentX, targetX).apply {
             duration = 200
             interpolator = DecelerateInterpolator()
             addUpdateListener { animator ->
-                params.x = animator.animatedValue as Int
-                lastCollapsedX = params.x
-                windowManager.updateViewLayout(overlayView, params)
+                params?.x = animator.animatedValue as Int
+                lastCollapsedX = params?.x ?: 0
+                overlayView?.let { view ->
+                    params?.let { p ->
+                        windowManager.updateViewLayout(view, p)
+                    }
+                }
             }
             start()
         }
@@ -659,9 +694,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         serviceScope.cancel()
         
         try {
-            if (::controlReceiver.isInitialized) {
-                unregisterReceiver(controlReceiver)
-            }
+            unregisterReceiver(controlReceiver)
         } catch (e: Exception) {
             Log.e("ChatOverlay", "Error unregistering receiver", e)
         }
@@ -673,8 +706,10 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         startService(intent)
 
         try {
-            if (::overlayView.isInitialized && overlayView.windowToken != null) {
-                windowManager.removeView(overlayView)
+            overlayView?.let { view ->
+                if (view.windowToken != null) {
+                    windowManager.removeView(view)
+                }
             }
         } catch (e: Exception) {
             Log.e("ChatOverlay", "Error removing overlay view", e)
