@@ -14,6 +14,8 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
+import android.view.ContextThemeWrapper
 import kotlinx.coroutines.*
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
@@ -62,6 +64,15 @@ class ScreenReaderService : AccessibilityService() {
         val nodeInfo: String
     )
 
+    // Store tag information for click handling
+    data class TagInfo(
+        val text: String,
+        val color: Int,
+        val fullText: String,
+        val reason: String,
+        val threat: String
+    )
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
@@ -93,11 +104,13 @@ class ScreenReaderService : AccessibilityService() {
         when (intent?.action) {
             ACTION_START_SCAN -> {
                 Log.d(TAG, "START_SCAN received")
-                if (!isScanning && !tagsVisible) {
-                    startScreenScan()
-                } else if (tagsVisible) {
+                if (tagsVisible) {
+                    // If tags are visible, hide them (toggle off)
                     Log.d(TAG, "Tags already visible - clearing them")
                     clearTags()
+                } else if (!isScanning) {
+                    // If not scanning and tags not visible, start new scan
+                    startScreenScan()
                 } else {
                     Log.d(TAG, "Already scanning")
                 }
@@ -208,7 +221,16 @@ class ScreenReaderService : AccessibilityService() {
         val isSafe: Boolean,
         val riskLevel: String,
         val tags: List<String>,
-        val analysis: String
+        val analysis: String,
+        val flaggedItems: List<FlaggedItem>
+    )
+
+    data class FlaggedItem(
+        val type: String,
+        val content: String,
+        val threat: String,
+        val severity: String,
+        val reason: String
     )
 
     private suspend fun analyzeScreenContent(content: String): ScanResult = withContext(Dispatchers.IO) {
@@ -243,7 +265,8 @@ class ScreenReaderService : AccessibilityService() {
                     isSafe = true,
                     riskLevel = "safe",
                     tags = listOf("Analysis Error"),
-                    analysis = "Unable to connect to security service."
+                    analysis = "Unable to connect to security service.",
+                    flaggedItems = emptyList()
                 )
             }
 
@@ -258,17 +281,34 @@ class ScreenReaderService : AccessibilityService() {
                 tags.add(tagsArray.getString(i))
             }
 
+            // Parse flaggedItems
+            val flaggedItemsArray = json.optJSONArray("flaggedItems") ?: JSONArray()
+            val flaggedItems = mutableListOf<FlaggedItem>()
+            for (i in 0 until flaggedItemsArray.length()) {
+                val item = flaggedItemsArray.getJSONObject(i)
+                flaggedItems.add(
+                    FlaggedItem(
+                        type = item.optString("type", "message"),
+                        content = item.optString("content", ""),
+                        threat = item.optString("threat", "Unknown"),
+                        severity = item.optString("severity", "medium"),
+                        reason = item.optString("reason", "Suspicious pattern detected")
+                    )
+                )
+            }
+
             if (tags.isEmpty() && !isSafe) {
                 tags.add("Review Recommended")
             }
 
-            Log.d(TAG, "✅ Parsed result: isSafe=$isSafe, riskLevel=$riskLevel, tags=${tags.size}")
+            Log.d(TAG, "✅ Parsed result: isSafe=$isSafe, riskLevel=$riskLevel, tags=${tags.size}, flaggedItems=${flaggedItems.size}")
 
             return@withContext ScanResult(
                 isSafe = isSafe,
                 riskLevel = riskLevel,
                 tags = tags,
-                analysis = analysis
+                analysis = analysis,
+                flaggedItems = flaggedItems
             )
             
         } catch (e: IOException) {
@@ -277,7 +317,8 @@ class ScreenReaderService : AccessibilityService() {
                 isSafe = true,
                 riskLevel = "safe",
                 tags = listOf("Network Error"),
-                analysis = "Could not reach security server."
+                analysis = "Could not reach security server.",
+                flaggedItems = emptyList()
             )
         } catch (e: Exception) {
             Log.e(TAG, "❌ Analysis error", e)
@@ -285,14 +326,12 @@ class ScreenReaderService : AccessibilityService() {
                 isSafe = true,
                 riskLevel = "safe",
                 tags = listOf("Error"),
-                analysis = "Analysis failed: ${e.message}"
+                analysis = "Analysis failed: ${e.message}",
+                flaggedItems = emptyList()
             )
         }
     }
 
-    // ========================================
-    // IMPROVED TAG DISPLAY - MORE VISIBLE
-    // ========================================
     private fun displayTagsNearContent(
         contentList: List<ContentWithPosition>,
         result: ScanResult
@@ -320,20 +359,67 @@ class ScreenReaderService : AccessibilityService() {
             }
             
             val taggedBounds = mutableSetOf<Rect>()
-            val maxTags = 10
+            val maxTags = 15
             var tagCount = 0
             
+            // Analyze patterns
             val criticalPatterns = listOf(
                 "verify your account", "suspended", "confirm password",
                 "click here to login", "won a prize", "claim your reward",
                 "urgent action required", "verify identity", "payment failed",
                 "account will be closed", "verify now", "limited time",
-                "act now", "expire", "suspicious activity"
+                "act now", "expire", "suspicious activity", "click here",
+                "confirm now", "update payment"
             )
             
             val dangerPatterns = listOf("scam", "phishing", "fraud", "steal", "hack")
-            val warningPatterns = listOf("suspicious", "unusual", "verify", "confirm")
+            val warningPatterns = listOf("suspicious", "unusual", "verify", "confirm", "urgent")
+            val emotionalPatterns = listOf("love", "miss you", "help me", "please", "emergency", "crisis")
             
+            // First, display tags from flaggedItems
+            result.flaggedItems.forEach { item ->
+                if (tagCount >= maxTags) return@forEach
+                
+                // Find matching content
+                val matchingContent = contentList.find { 
+                    it.text.contains(item.content, ignoreCase = true) 
+                }
+                
+                matchingContent?.let { content ->
+                    if (taggedBounds.any { existingBounds ->
+                        Math.abs(existingBounds.top - content.bounds.top) < 150 &&
+                        Math.abs(existingBounds.left - content.bounds.left) < 150
+                    }) {
+                        return@forEach
+                    }
+                    
+                    val color = when (item.severity) {
+                        "high" -> android.graphics.Color.parseColor("#FF1744")
+                        "medium" -> android.graphics.Color.parseColor("#FF9800")
+                        else -> android.graphics.Color.parseColor("#2196F3")
+                    }
+                    
+                    val tagText = when (item.threat) {
+                        "Scam" -> "🚨 SCAM"
+                        "Phishing" -> "🚨 PHISHING"
+                        "Suspicious Link" -> "🔗 CHECK LINK"
+                        else -> "⚠️ ${item.threat}"
+                    }
+                    
+                    createClickableTag(
+                        content.bounds,
+                        tagText,
+                        color,
+                        content.text,
+                        item.reason,
+                        item.threat
+                    )
+                    taggedBounds.add(content.bounds)
+                    tagCount++
+                }
+            }
+            
+            // Then analyze content for additional patterns
             contentList.forEach { content ->
                 if (tagCount >= maxTags) return@forEach
                 
@@ -349,25 +435,62 @@ class ScreenReaderService : AccessibilityService() {
                 
                 val tagInfo = when {
                     criticalPatterns.any { lowerText.contains(it) } -> {
-                        TagInfo("🚨 PHISHING", android.graphics.Color.parseColor("#FF1744"), content.text)
+                        TagInfo(
+                            "🚨 PHISHING",
+                            android.graphics.Color.parseColor("#FF1744"),
+                            content.text,
+                            "This message uses urgent language and asks for sensitive actions like verifying account or clicking links. This is a common phishing tactic.",
+                            "Phishing"
+                        )
                     }
                     dangerPatterns.any { lowerText.contains(it) } && result.riskLevel == "danger" -> {
-                        TagInfo("⚠️ SCAM", android.graphics.Color.parseColor("#F44336"), content.text)
+                        TagInfo(
+                            "⚠️ SCAM",
+                            android.graphics.Color.parseColor("#F44336"),
+                            content.text,
+                            "This content contains keywords associated with scams. Do not share personal information or send money.",
+                            "Scam"
+                        )
                     }
                     warningPatterns.any { lowerText.contains(it) } && result.riskLevel == "warning" -> {
-                        TagInfo("⚠️ Verify", android.graphics.Color.parseColor("#FF9800"), content.text)
+                        TagInfo(
+                            "⚠️ Verify",
+                            android.graphics.Color.parseColor("#FF9800"),
+                            content.text,
+                            "This message asks you to verify or confirm something. Always verify through official channels, not through links in messages.",
+                            "Verification Request"
+                        )
                     }
-                    result.tags.any { it.contains("Emotional", ignoreCase = true) } && lowerText.length > 50 -> {
-                        TagInfo("💭 Manipulation", android.graphics.Color.parseColor("#9C27B0"), content.text)
+                    emotionalPatterns.any { lowerText.contains(it) } && lowerText.length > 30 -> {
+                        TagInfo(
+                            "💭 Emotional Tone",
+                            android.graphics.Color.parseColor("#9C27B0"),
+                            content.text,
+                            "This message uses emotional language. Scammers often use emotions to manipulate victims. Stay calm and think carefully.",
+                            "Emotional Manipulation"
+                        )
                     }
-                    lowerText.contains("http") || lowerText.contains("www") -> {
-                        TagInfo("🔗 Check Link", android.graphics.Color.parseColor("#2196F3"), content.text)
+                    lowerText.contains("http") || lowerText.contains("www") || lowerText.contains("bit.ly") -> {
+                        TagInfo(
+                            "🔗 Check Link",
+                            android.graphics.Color.parseColor("#2196F3"),
+                            content.text,
+                            "This contains a link. Always verify the destination before clicking. Be especially careful with shortened URLs.",
+                            "Link Detected"
+                        )
                     }
                     else -> null
                 }
                 
-                tagInfo?.let { (text, color, fullText) ->
-                    createEnhancedTag(content.bounds, text, color, fullText)
+                tagInfo?.let { info ->
+                    createClickableTag(
+                        content.bounds,
+                        info.text,
+                        info.color,
+                        info.fullText,
+                        info.reason,
+                        info.threat
+                    )
                     taggedBounds.add(content.bounds)
                     tagCount++
                 }
@@ -375,11 +498,13 @@ class ScreenReaderService : AccessibilityService() {
             
             if (tagCount == 0 && result.riskLevel == "danger") {
                 val topBounds = Rect(60, 300, 700, 400)
-                createEnhancedTag(
-                    topBounds, 
-                    "🚨 THREAT DETECTED", 
+                createClickableTag(
+                    topBounds,
+                    "🚨 THREAT DETECTED",
                     android.graphics.Color.parseColor("#D32F2F"),
-                    result.analysis
+                    result.analysis,
+                    result.analysis,
+                    "General Threat"
                 )
                 tagCount++
             }
@@ -407,20 +532,29 @@ class ScreenReaderService : AccessibilityService() {
         }
     }
 
-    private fun createEnhancedTag(bounds: Rect, text: String, color: Int, fullText: String) {
-        // Create a larger, more visible tag
+    private fun createClickableTag(
+        bounds: Rect,
+        text: String,
+        color: Int,
+        fullText: String,
+        reason: String,
+        threat: String
+    ) {
         val tagView = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(32, 16, 32, 16)  // Larger padding
-            
+            setPadding(32, 16, 32, 16)
             background = createEnhancedRoundedBackground(color)
-            elevation = 16f  // Higher elevation for better shadow
-            alpha = 0.98f    // Almost fully opaque
+            elevation = 16f
+            alpha = 0.98f
+            
+            // Make it clickable
+            isClickable = true
+            isFocusable = true
         }
         
         val textView = TextView(this).apply {
             this.text = text
-            textSize = 15f  // Larger text
+            textSize = 15f
             setTextColor(android.graphics.Color.WHITE)
             setTypeface(null, android.graphics.Typeface.BOLD)
             setShadowLayer(4f, 0f, 2f, android.graphics.Color.parseColor("#40000000"))
@@ -431,17 +565,16 @@ class ScreenReaderService : AccessibilityService() {
         // Smart positioning with better visibility
         val screenWidth = resources.displayMetrics.widthPixels
         val screenHeight = resources.displayMetrics.heightPixels
-        val tagWidth = 350  // Larger tag width
+        val tagWidth = 350
         
         val layoutParams = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.WRAP_CONTENT,
             FrameLayout.LayoutParams.WRAP_CONTENT
         ).apply {
-            // Position tag near content but ensure it's visible
             leftMargin = when {
                 bounds.left + tagWidth < screenWidth - 60 -> bounds.left + 20
                 bounds.right - tagWidth > 60 -> bounds.right - tagWidth - 20
-                else -> (screenWidth - tagWidth) / 2  // Center if no space
+                else -> (screenWidth - tagWidth) / 2
             }.coerceIn(40, screenWidth - tagWidth - 40)
             
             topMargin = when {
@@ -451,24 +584,9 @@ class ScreenReaderService : AccessibilityService() {
             }.coerceIn(100, screenHeight - 150)
         }
 
+        // Make the tag clickable to show details
         tagView.setOnClickListener {
-            showDetailedAnalysis(text, fullText)
-        }
-
-        // Add pulsing animation for critical tags
-        if (text.contains("PHISHING") || text.contains("SCAM")) {
-            tagView.animate()
-                .scaleX(1.1f)
-                .scaleY(1.1f)
-                .setDuration(500)
-                .withEndAction {
-                    tagView.animate()
-                        .scaleX(1.0f)
-                        .scaleY(1.0f)
-                        .setDuration(500)
-                        .start()
-                }
-                .start()
+            showTagDetails(text, reason, fullText.take(150))
         }
 
         try {
@@ -477,13 +595,37 @@ class ScreenReaderService : AccessibilityService() {
             Log.e(TAG, "Error adding tag", e)
         }
     }
+
+    private fun showTagDetails(tagText: String, reason: String, contentPreview: String) {
+        serviceScope.launch(Dispatchers.Main) {
+            try {
+                val dialog = AlertDialog.Builder(ContextThemeWrapper(this@ScreenReaderService, android.R.style.Theme_Material_Dialog_Alert))
+                    .setTitle(tagText)
+                    .setMessage("$reason\n\nContent: \"$contentPreview...\"")
+                    .setPositiveButton("Got it") { dialog, _ -> dialog.dismiss() }
+                    .create()
+                
+                // Make dialog appear over everything
+                dialog.window?.setType(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY)
+                dialog.show()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error showing dialog", e)
+                // Fallback to toast
+                android.widget.Toast.makeText(
+                    this@ScreenReaderService,
+                    "$tagText\n$reason",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
     
     private fun createEnhancedRoundedBackground(color: Int): android.graphics.drawable.GradientDrawable {
         return android.graphics.drawable.GradientDrawable().apply {
             shape = android.graphics.drawable.GradientDrawable.RECTANGLE
             setColor(color)
-            cornerRadius = 28f  // More rounded
-            setStroke(4, android.graphics.Color.WHITE)  // Thicker white border
+            cornerRadius = 28f
+            setStroke(4, android.graphics.Color.WHITE)
         }
     }
 
@@ -567,19 +709,6 @@ class ScreenReaderService : AccessibilityService() {
         tagsContainer?.addView(statusView, layoutParams)
     }
 
-    private fun showDetailedAnalysis(tagText: String, fullText: String) {
-        android.widget.Toast.makeText(
-            this,
-            "$tagText\nContent: ${fullText.take(100)}...",
-            android.widget.Toast.LENGTH_LONG
-        ).show()
-    }
-
-    data class TagInfo(val text: String, val color: Int, val fullText: String)
-
-    // ========================================
-    // SCANNING ANIMATION
-    // ========================================
     private fun showScanningAnimation() {
         if (scanningOverlay != null) return
 
