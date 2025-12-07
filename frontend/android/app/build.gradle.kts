@@ -67,4 +67,7 @@ dependencies {
     implementation("org.json:json:20231013")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("com.google.android.play:core:1.10.3")
+    
+    // Add AppCompat for AlertDialog
+    implementation("androidx.appcompat:appcompat:1.6.1")
 }
