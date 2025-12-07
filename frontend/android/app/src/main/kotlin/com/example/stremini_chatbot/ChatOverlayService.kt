@@ -23,6 +23,7 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -55,8 +56,8 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private lateinit var windowManager: WindowManager
-    private var overlayView: View? = null
-    private var params: WindowManager.LayoutParams? = null
+    private var overlayContainer: FrameLayout? = null
+    private var containerParams: WindowManager.LayoutParams? = null
 
     // Floating Chatbot Window
     private var floatingChatView: View? = null
@@ -80,9 +81,10 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private var isDragging = false
     private var hasMoved = false
 
-    // Configuration - Reduced for better performance
-    private val bubbleSizeDp = 70f
-    private val radiusDp = 100f
+    // Configuration - Match reference image sizes
+    private val bubbleSizeDp = 60f  // Main bubble
+    private val menuIconSizeDp = 50f  // Menu icons
+    private val radiusDp = 90f  // Distance from center
 
     // Position storage
     private var lastCollapsedX = 0
@@ -139,16 +141,30 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
     private fun setupOverlay() {
         try {
-            overlayView = LayoutInflater.from(this).inflate(R.layout.chat_bubble_layout, null)
-            bubbleIcon = overlayView?.findViewById(R.id.bubble_icon)
+            // Create a container to hold both bubble and menu items
+            overlayContainer = FrameLayout(this)
+            
+            // Inflate bubble
+            val bubbleView = LayoutInflater.from(this).inflate(R.layout.chat_bubble_layout, null)
+            bubbleIcon = bubbleView.findViewById(R.id.bubble_icon)
 
-            // Initialize menu items
+            // Get menu item views
+            val btnRefresh = bubbleView.findViewById<ImageView>(R.id.btn_refresh)
+            val btnSettings = bubbleView.findViewById<ImageView>(R.id.btn_settings)
+            val btnAi = bubbleView.findViewById<ImageView>(R.id.btn_ai)
+            val btnScanner = bubbleView.findViewById<ImageView>(R.id.btn_scanner)
+            val btnKeyboard = bubbleView.findViewById<ImageView>(R.id.btn_keyboard)
+
+            // Add to list
             menuItems.clear()
-            overlayView?.findViewById<ImageView>(R.id.btn_refresh)?.let { menuItems.add(it) }
-            overlayView?.findViewById<ImageView>(R.id.btn_settings)?.let { menuItems.add(it) }
-            overlayView?.findViewById<ImageView>(R.id.btn_ai)?.let { menuItems.add(it) }
-            overlayView?.findViewById<ImageView>(R.id.btn_scanner)?.let { menuItems.add(it) }
-            overlayView?.findViewById<ImageView>(R.id.btn_keyboard)?.let { menuItems.add(it) }
+            btnRefresh?.let { menuItems.add(it) }
+            btnSettings?.let { menuItems.add(it) }
+            btnAi?.let { menuItems.add(it) }
+            btnScanner?.let { menuItems.add(it) }
+            btnKeyboard?.let { menuItems.add(it) }
+
+            // Add bubble to container
+            overlayContainer?.addView(bubbleView)
 
             val typeParam = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -157,17 +173,19 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 WindowManager.LayoutParams.TYPE_PHONE
             }
 
-            params = WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
+            // Create large container to hold expanded menu
+            val containerSize = dpToPx(250f)  // Large enough for menu
+            containerParams = WindowManager.LayoutParams(
+                containerSize,
+                containerSize,
                 typeParam,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                         WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT
             )
-            params?.gravity = Gravity.TOP or Gravity.START
-            params?.x = lastCollapsedX
-            params?.y = lastCollapsedY
+            containerParams?.gravity = Gravity.TOP or Gravity.START
+            containerParams?.x = lastCollapsedX
+            containerParams?.y = lastCollapsedY
 
             bubbleIcon?.setOnTouchListener(this)
 
@@ -205,30 +223,30 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 }
             }
 
-            // Optimize rendering - NO hardware acceleration for overlay
-            overlayView?.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+            // Configure rendering
+            overlayContainer?.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             bubbleIcon?.apply {
-                setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+                setLayerType(View.LAYER_TYPE_HARDWARE, null)
                 scaleType = ImageView.ScaleType.FIT_CENTER
-                // Prevent icon stretching
-                adjustViewBounds = true
             }
             
-            menuItems.forEach { 
-                it.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
-                it.scaleType = ImageView.ScaleType.FIT_CENTER
-                it.adjustViewBounds = true
-                // Start invisible
-                it.visibility = View.GONE
-                it.alpha = 0f
+            // Initially hide and position menu items at center
+            menuItems.forEach { item ->
+                item.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                item.scaleType = ImageView.ScaleType.FIT_CENTER
+                item.visibility = View.INVISIBLE  // Use INVISIBLE not GONE
+                item.alpha = 0f
+                // Position at center initially
+                item.translationX = 0f
+                item.translationY = 0f
             }
 
             updateMenuItemsColor()
             
-            overlayView?.let { view ->
-                params?.let { p ->
-                    windowManager.addView(view, p)
-                    Log.d(TAG, "Overlay view added")
+            overlayContainer?.let { container ->
+                containerParams?.let { params ->
+                    windowManager.addView(container, params)
+                    Log.d(TAG, "Overlay container added with ${menuItems.size} menu items")
                 }
             }
         } catch (e: Exception) {
@@ -237,7 +255,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private fun postDelayed(action: () -> Unit, delayMillis: Long) {
-        overlayView?.postDelayed(action, delayMillis)
+        overlayContainer?.postDelayed(action, delayMillis)
     }
 
     private fun handleAIChat() {
@@ -276,8 +294,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             floatingChatParams?.gravity = Gravity.BOTTOM or Gravity.END
             floatingChatParams?.x = dpToPx(20f)
             floatingChatParams?.y = dpToPx(100f)
-
-            floatingChatView?.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
 
             setupFloatingChatListeners()
 
@@ -517,7 +533,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     override fun onTouch(v: View, event: MotionEvent): Boolean {
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
-                params?.let { p ->
+                containerParams?.let { p ->
                     initialX = p.x
                     initialY = p.y
                 }
@@ -535,11 +551,11 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                     hasMoved = true
                     if (!isMenuExpanded && !isAnimating) {
                         isDragging = true
-                        params?.x = initialX + dx
-                        params?.y = initialY + dy
-                        overlayView?.let { view ->
-                            params?.let { p ->
-                                windowManager.updateViewLayout(view, p)
+                        containerParams?.x = initialX + dx
+                        containerParams?.y = initialY + dy
+                        overlayContainer?.let { container ->
+                            containerParams?.let { p ->
+                                windowManager.updateViewLayout(container, p)
                             }
                         }
                     } else if (isMenuExpanded && !isAnimating) {
@@ -552,7 +568,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 if (!hasMoved && !isDragging && !isAnimating) {
                     toggleMenu()
                 } else if (isDragging && !isAnimating) {
-                    params?.let { p ->
+                    containerParams?.let { p ->
                         lastCollapsedX = p.x
                         lastCollapsedY = p.y
                     }
@@ -568,6 +584,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
     private fun toggleMenu() {
         if (isAnimating) return
+        Log.d(TAG, "Toggle menu - expanded: $isMenuExpanded")
         if (isMenuExpanded) collapseMenu() else expandMenu()
     }
 
@@ -575,73 +592,57 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         if (isAnimating) return
         isAnimating = true
         isMenuExpanded = true
+        Log.d(TAG, "Expanding menu with ${menuItems.size} items")
 
-        val radiusPx = dpToPx(radiusDp).toFloat()
-        val bubbleSizePx = dpToPx(bubbleSizeDp).toFloat()
-
-        val expandedWindowSizePx = (radiusPx * 2) + bubbleSizePx
-        val offsetPx = (expandedWindowSizePx / 2) - (bubbleSizePx / 2)
-
-        val currentCollapsedX = params?.x ?: 0
-        val currentCollapsedY = params?.y ?: 0
-
-        // Update window size
-        params?.width = expandedWindowSizePx.toInt()
-        params?.height = expandedWindowSizePx.toInt()
-        params?.x = currentCollapsedX - offsetPx.toInt()
-        params?.y = currentCollapsedY - offsetPx.toInt()
-
-        overlayView?.let { view ->
-            params?.let { p ->
-                windowManager.updateViewLayout(view, p)
-            }
-        }
+        val radiusPx = dpToPx(radiusDp)
+        val containerSize = dpToPx(250f)
+        val centerOffset = containerSize / 2
 
         val screenWidth = resources.displayMetrics.widthPixels
-        val bubbleCenterX = currentCollapsedX + (bubbleSizePx / 2)
+        val currentX = containerParams?.x ?: 0
+        val bubbleCenterX = currentX + centerOffset
         val isOnRightSide = bubbleCenterX > (screenWidth / 2)
 
+        // Calculate angles for menu placement
         val startAngle = if (isOnRightSide) 90.0 else -90.0
         val endAngle = if (isOnRightSide) 270.0 else 90.0
         val angleRange = endAngle - startAngle
         val step = angleRange / (menuItems.size - 1)
 
-        // Animate all menu items together
         val animatorSet = AnimatorSet()
         val animators = mutableListOf<ObjectAnimator>()
 
-        for ((index, view) in menuItems.withIndex()) {
-            view.visibility = View.VISIBLE
-            view.alpha = 0f
-            view.scaleX = 0.3f
-            view.scaleY = 0.3f
+        for ((index, item) in menuItems.withIndex()) {
+            item.visibility = View.VISIBLE
+            item.alpha = 0f
+            item.scaleX = 0.3f
+            item.scaleY = 0.3f
 
             val angle = startAngle + (index * step)
             val rad = Math.toRadians(angle)
 
-            val targetX = (radiusPx * cos(rad)).toFloat() + offsetPx
-            val targetY = (radiusPx * -sin(rad)).toFloat() + offsetPx
+            val targetX = (radiusPx * cos(rad)).toFloat()
+            val targetY = (radiusPx * -sin(rad)).toFloat()
 
-            val animX = ObjectAnimator.ofFloat(view, "translationX", 0f, targetX)
-            val animY = ObjectAnimator.ofFloat(view, "translationY", 0f, targetY)
-            val animAlpha = ObjectAnimator.ofFloat(view, "alpha", 0f, 1f)
-            val animScaleX = ObjectAnimator.ofFloat(view, "scaleX", 0.3f, 1f)
-            val animScaleY = ObjectAnimator.ofFloat(view, "scaleY", 0.3f, 1f)
+            Log.d(TAG, "Item $index - angle: $angle, targetX: $targetX, targetY: $targetY")
 
-            animators.add(animX)
-            animators.add(animY)
-            animators.add(animAlpha)
-            animators.add(animScaleX)
-            animators.add(animScaleY)
+            val animX = ObjectAnimator.ofFloat(item, "translationX", 0f, targetX)
+            val animY = ObjectAnimator.ofFloat(item, "translationY", 0f, targetY)
+            val animAlpha = ObjectAnimator.ofFloat(item, "alpha", 0f, 1f)
+            val animScaleX = ObjectAnimator.ofFloat(item, "scaleX", 0.3f, 1f)
+            val animScaleY = ObjectAnimator.ofFloat(item, "scaleY", 0.3f, 1f)
+
+            animators.addAll(listOf(animX, animY, animAlpha, animScaleX, animScaleY))
         }
 
-        animatorSet.playTogether(animators.toList())
+        animatorSet.playTogether(animators)
         animatorSet.duration = 300
         animatorSet.interpolator = OvershootInterpolator(1.5f)
         animatorSet.start()
 
-        overlayView?.postDelayed({
+        overlayContainer?.postDelayed({
             isAnimating = false
+            Log.d(TAG, "Menu expansion complete")
         }, 300)
 
         updateMenuItemsColor()
@@ -651,64 +652,42 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         if (isAnimating) return
         isAnimating = true
         isMenuExpanded = false
+        Log.d(TAG, "Collapsing menu")
 
         val animatorSet = AnimatorSet()
         val animators = mutableListOf<ObjectAnimator>()
 
-        for (view in menuItems) {
-            val animX = ObjectAnimator.ofFloat(view, "translationX", view.translationX, 0f)
-            val animY = ObjectAnimator.ofFloat(view, "translationY", view.translationY, 0f)
-            val animAlpha = ObjectAnimator.ofFloat(view, "alpha", view.alpha, 0f)
-            val animScaleX = ObjectAnimator.ofFloat(view, "scaleX", view.scaleX, 0.3f)
-            val animScaleY = ObjectAnimator.ofFloat(view, "scaleY", view.scaleY, 0.3f)
+        for (item in menuItems) {
+            val animX = ObjectAnimator.ofFloat(item, "translationX", item.translationX, 0f)
+            val animY = ObjectAnimator.ofFloat(item, "translationY", item.translationY, 0f)
+            val animAlpha = ObjectAnimator.ofFloat(item, "alpha", item.alpha, 0f)
+            val animScaleX = ObjectAnimator.ofFloat(item, "scaleX", item.scaleX, 0.3f)
+            val animScaleY = ObjectAnimator.ofFloat(item, "scaleY", item.scaleY, 0.3f)
 
-            animators.add(animX)
-            animators.add(animY)
-            animators.add(animAlpha)
-            animators.add(animScaleX)
-            animators.add(animScaleY)
+            animators.addAll(listOf(animX, animY, animAlpha, animScaleX, animScaleY))
         }
 
-        animatorSet.playTogether(animators.toList())
+        animatorSet.playTogether(animators)
         animatorSet.duration = 200
         animatorSet.interpolator = AccelerateDecelerateInterpolator()
         animatorSet.start()
 
-        overlayView?.postDelayed({
-            menuItems.forEach { it.visibility = View.GONE }
-            
-            // Reset window size
-            params?.width = WindowManager.LayoutParams.WRAP_CONTENT
-            params?.height = WindowManager.LayoutParams.WRAP_CONTENT
-            params?.x = lastCollapsedX
-            params?.y = lastCollapsedY
-
-            try {
-                overlayView?.let { view ->
-                    if (view.windowToken != null) {
-                        params?.let { p ->
-                            windowManager.updateViewLayout(view, p)
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error updating view layout", e)
-            }
-            
+        overlayContainer?.postDelayed({
+            menuItems.forEach { it.visibility = View.INVISIBLE }
             isAnimating = false
+            Log.d(TAG, "Menu collapse complete")
         }, 200)
     }
 
     private fun snapToEdge() {
-        val bubbleSizePx = dpToPx(bubbleSizeDp).toFloat()
         val screenWidth = resources.displayMetrics.widthPixels
-
-        val currentX = params?.x ?: 0
-        val currentCenterX = currentX + (bubbleSizePx / 2)
+        val containerSize = dpToPx(250f)
+        val currentX = containerParams?.x ?: 0
+        val currentCenterX = currentX + (containerSize / 2)
         val middle = screenWidth / 2
 
         val targetX = if (currentCenterX > middle) {
-            screenWidth - bubbleSizePx.toInt()
+            screenWidth - containerSize
         } else {
             0
         }
@@ -717,11 +696,11 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             duration = 250
             interpolator = DecelerateInterpolator()
             addUpdateListener { animator ->
-                params?.x = animator.animatedValue as Int
-                lastCollapsedX = params?.x ?: 0
-                overlayView?.let { view ->
-                    params?.let { p ->
-                        windowManager.updateViewLayout(view, p)
+                containerParams?.x = animator.animatedValue as Int
+                lastCollapsedX = containerParams?.x ?: 0
+                overlayContainer?.let { container ->
+                    containerParams?.let { p ->
+                        windowManager.updateViewLayout(container, p)
                     }
                 }
             }
@@ -773,13 +752,13 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         startService(intent)
 
         try {
-            overlayView?.let { view ->
-                if (view.windowToken != null) {
-                    windowManager.removeView(view)
+            overlayContainer?.let { container ->
+                if (container.windowToken != null) {
+                    windowManager.removeView(container)
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error removing overlay view", e)
+            Log.e(TAG, "Error removing overlay container", e)
         }
     }
 }
