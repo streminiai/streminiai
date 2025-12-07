@@ -14,8 +14,6 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
-import android.view.ContextThemeWrapper
 import kotlinx.coroutines.*
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
@@ -584,39 +582,21 @@ class ScreenReaderService : AccessibilityService() {
             }.coerceIn(100, screenHeight - 150)
         }
 
-        // Make the tag clickable to show details
+        // Make the tag clickable to show details using Toast instead of Dialog
         tagView.setOnClickListener {
-            showTagDetails(text, reason, fullText.take(150))
+            serviceScope.launch(Dispatchers.Main) {
+                android.widget.Toast.makeText(
+                    this@ScreenReaderService,
+                    "$text\n\n$reason\n\nContent: \"${fullText.take(100)}...\"",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
         }
 
         try {
             tagsContainer?.addView(tagView, layoutParams)
         } catch (e: Exception) {
             Log.e(TAG, "Error adding tag", e)
-        }
-    }
-
-    private fun showTagDetails(tagText: String, reason: String, contentPreview: String) {
-        serviceScope.launch(Dispatchers.Main) {
-            try {
-                val dialog = AlertDialog.Builder(ContextThemeWrapper(this@ScreenReaderService, android.R.style.Theme_Material_Dialog_Alert))
-                    .setTitle(tagText)
-                    .setMessage("$reason\n\nContent: \"$contentPreview...\"")
-                    .setPositiveButton("Got it") { dialog, _ -> dialog.dismiss() }
-                    .create()
-                
-                // Make dialog appear over everything
-                dialog.window?.setType(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY)
-                dialog.show()
-            } catch (e: Exception) {
-                Log.e(TAG, "Error showing dialog", e)
-                // Fallback to toast
-                android.widget.Toast.makeText(
-                    this@ScreenReaderService,
-                    "$tagText\n$reason",
-                    android.widget.Toast.LENGTH_LONG
-                ).show()
-            }
         }
     }
     
