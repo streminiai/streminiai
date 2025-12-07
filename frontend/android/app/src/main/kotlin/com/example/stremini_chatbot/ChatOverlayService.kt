@@ -553,23 +553,26 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 .start()
         }
 
-        overlayView.postDelayed({
-            if (!isMenuExpanded) {
-                params.width = WindowManager.LayoutParams.WRAP_CONTENT
-                params.height = WindowManager.LayoutParams.WRAP_CONTENT
+        // Check if overlayView is initialized before posting delayed action
+        if (::overlayView.isInitialized) {
+            overlayView.postDelayed({
+                if (!isMenuExpanded) {
+                    params.width = WindowManager.LayoutParams.WRAP_CONTENT
+                    params.height = WindowManager.LayoutParams.WRAP_CONTENT
 
-                params.x = lastCollapsedX
-                params.y = lastCollapsedY
+                    params.x = lastCollapsedX
+                    params.y = lastCollapsedY
 
-                try {
-                    if (::overlayView.isInitialized && overlayView.windowToken != null) {
-                        windowManager.updateViewLayout(overlayView, params)
+                    try {
+                        if (overlayView.windowToken != null) {
+                            windowManager.updateViewLayout(overlayView, params)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("ChatOverlay", "Error updating view layout", e)
                     }
-                } catch (e: Exception) {
-                    Log.e("ChatOverlay", "Error updating view layout", e)
                 }
-            }
-        }, 150)
+            }, 150)
+        }
     }
 
     private fun snapToEdge() {
