@@ -46,7 +46,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     companion object {
         const val ACTION_SEND_MESSAGE = "com.example.stremini_chatbot.SEND_MESSAGE"
         const val EXTRA_MESSAGE = "message"
-        // Define colors
         val NEON_BLUE: Int = android.graphics.Color.parseColor("#00D9FF")
         val WHITE: Int = android.graphics.Color.parseColor("#FFFFFF")
     }
@@ -63,6 +62,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private lateinit var bubbleIcon: ImageView
     private lateinit var menuItems: List<ImageView>
     private var isMenuExpanded = false
+    private var isAnimating = false // Prevent animation conflicts
 
     // Track active features
     private val activeFeatures = mutableSetOf<Int>()
@@ -77,11 +77,11 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     private var hasMoved = false
 
     // Configuration
-    private val bubbleSizeDp = 70f
-    private val menuItemSizeDp = 56f
+    private val bubbleSizeDp = 78f
+    private val menuItemSizeDp = 60f
     private val radiusDp = 110f
 
-    // Position storage (Stores the top-left corner of the collapsed bubble)
+    // Position storage
     private var lastCollapsedX = 0
     private var lastCollapsedY = 200
 
@@ -150,7 +150,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
         }
 
-        // Initialize with WRAP_CONTENT to represent the collapsed bubble state
         params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -168,29 +167,43 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
         // Set click listeners for menu items
         menuItems[0].setOnClickListener {
-            collapseMenu()
-            handleRefresh()
+            if (!isAnimating) {
+                collapseMenu()
+                handleRefresh()
+            }
         }
         menuItems[1].setOnClickListener {
-            collapseMenu()
-            handleSettings()
+            if (!isAnimating) {
+                collapseMenu()
+                handleSettings()
+            }
         }
         menuItems[2].setOnClickListener {
-            collapseMenu()
-            handleAIChat()
+            if (!isAnimating) {
+                collapseMenu()
+                handleAIChat()
+            }
         }
         menuItems[3].setOnClickListener {
-            collapseMenu()
-            handleScanner()
+            if (!isAnimating) {
+                collapseMenu()
+                handleScanner()
+            }
         }
         menuItems[4].setOnClickListener {
-            collapseMenu()
-            handleVoiceCommand()
+            if (!isAnimating) {
+                collapseMenu()
+                handleVoiceCommand()
+            }
         }
 
-        // Hardware acceleration for smooth rendering
+        // Hardware acceleration + better rendering
         bubbleIcon.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-        menuItems.forEach { it.setLayerType(View.LAYER_TYPE_HARDWARE, null) }
+        menuItems.forEach { 
+            it.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            // Ensure proper scaling for crisp icons
+            it.scaleType = ImageView.ScaleType.FIT_CENTER
+        }
 
         updateMenuItemsColor()
         windowManager.addView(overlayView, params)
@@ -218,8 +231,8 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         }
 
         floatingChatParams = WindowManager.LayoutParams(
-            dpToPx(300f),
-            dpToPx(400f),
+            dpToPx(320f),
+            dpToPx(480f),
             typeParam,
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                     WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
@@ -457,21 +470,21 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
                 if (abs(dx) > 10 || abs(dy) > 10) {
                     hasMoved = true
-                    if (!isMenuExpanded) {
+                    if (!isMenuExpanded && !isAnimating) {
                         isDragging = true
                         params.x = initialX + dx
                         params.y = initialY + dy
                         windowManager.updateViewLayout(overlayView, params)
-                    } else {
+                    } else if (isMenuExpanded && !isAnimating) {
                         collapseMenu()
                     }
                 }
                 return true
             }
             MotionEvent.ACTION_UP -> {
-                if (!hasMoved && !isDragging) {
+                if (!hasMoved && !isDragging && !isAnimating) {
                     toggleMenu()
-                } else if (isDragging) {
+                } else if (isDragging && !isAnimating) {
                     lastCollapsedX = params.x
                     lastCollapsedY = params.y
                     snapToEdge()
@@ -485,10 +498,13 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private fun toggleMenu() {
+        if (isAnimating) return
         if (isMenuExpanded) collapseMenu() else expandMenu()
     }
 
     private fun expandMenu() {
+        if (isAnimating) return
+        isAnimating = true
         isMenuExpanded = true
 
         val radiusPx = dpToPx(radiusDp).toFloat()
@@ -520,6 +536,8 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         for ((index, view) in menuItems.withIndex()) {
             view.visibility = View.VISIBLE
             view.alpha = 0f
+            view.scaleX = 0.5f
+            view.scaleY = 0.5f
 
             val angle = startAngle + (index * step)
             val rad = Math.toRadians(angle)
@@ -531,8 +549,15 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 .translationX(targetX)
                 .translationY(targetY)
                 .alpha(1f)
-                .setDuration(200)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(250)
                 .setInterpolator(DecelerateInterpolator())
+                .withEndAction {
+                    if (index == menuItems.size - 1) {
+                        isAnimating = false
+                    }
+                }
                 .start()
         }
 
@@ -540,39 +565,45 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     }
 
     private fun collapseMenu() {
+        if (isAnimating) return
+        isAnimating = true
         isMenuExpanded = false
 
-        for (view in menuItems) {
+        for ((index, view) in menuItems.withIndex()) {
             view.animate()
                 .translationX(0f)
                 .translationY(0f)
                 .alpha(0f)
-                .setDuration(150)
+                .scaleX(0.5f)
+                .scaleY(0.5f)
+                .setDuration(200)
                 .setInterpolator(AccelerateInterpolator())
-                .withEndAction { view.visibility = View.GONE }
+                .withEndAction { 
+                    view.visibility = View.GONE
+                    if (index == menuItems.size - 1) {
+                        isAnimating = false
+                    }
+                }
                 .start()
         }
 
-        // Check if overlayView is initialized before posting delayed action
-        if (::overlayView.isInitialized) {
-            overlayView.postDelayed({
-                if (!isMenuExpanded) {
-                    params.width = WindowManager.LayoutParams.WRAP_CONTENT
-                    params.height = WindowManager.LayoutParams.WRAP_CONTENT
+        overlayView.postDelayed({
+            if (!isMenuExpanded) {
+                params.width = WindowManager.LayoutParams.WRAP_CONTENT
+                params.height = WindowManager.LayoutParams.WRAP_CONTENT
 
-                    params.x = lastCollapsedX
-                    params.y = lastCollapsedY
+                params.x = lastCollapsedX
+                params.y = lastCollapsedY
 
-                    try {
-                        if (overlayView.windowToken != null) {
-                            windowManager.updateViewLayout(overlayView, params)
-                        }
-                    } catch (e: Exception) {
-                        Log.e("ChatOverlay", "Error updating view layout", e)
+                try {
+                    if (overlayView.windowToken != null) {
+                        windowManager.updateViewLayout(overlayView, params)
                     }
+                } catch (e: Exception) {
+                    Log.e("ChatOverlay", "Error updating view layout", e)
                 }
-            }, 150)
-        }
+            }
+        }, 200)
     }
 
     private fun snapToEdge() {
@@ -590,7 +621,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         }
 
         ValueAnimator.ofInt(params.x, targetX).apply {
-            duration = 150
+            duration = 200
             interpolator = DecelerateInterpolator()
             addUpdateListener { animator ->
                 params.x = animator.animatedValue as Int
