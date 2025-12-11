@@ -18,6 +18,9 @@
         <intent>
             <action android:name="android.settings.ACCESSIBILITY_SETTINGS"/>
         </intent>
+        <intent>
+            <action android:name="android.settings.INPUT_METHOD_SETTINGS"/>
+        </intent>
     </queries>
 
     <application
@@ -51,6 +54,13 @@
             </intent-filter>
         </activity>
 
+        <!-- Keyboard Settings Activity -->
+        <activity
+            android:name=".KeyboardSettingsActivity"
+            android:exported="false"
+            android:label="Stremini AI Keyboard Settings"
+            android:theme="@style/NormalTheme"/>
+
         <!-- Chat Overlay Service with proper foreground service type -->
         <service
             android:name=".ChatOverlayService"
@@ -61,6 +71,20 @@
             <property 
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="AI Assistant Overlay"/>
+        </service>
+
+        <!-- Stremini AI Keyboard IME Service -->
+        <service
+            android:name=".StreminiIME"
+            android:label="Stremini AI Keyboard"
+            android:permission="android.permission.BIND_INPUT_METHOD"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.view.InputMethod"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/keyboard_method"/>
         </service>
 
         <!-- Screen Reader Accessibility Service with detailed description -->
