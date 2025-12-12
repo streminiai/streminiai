@@ -73,6 +73,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
     // Track active features
     private val activeFeatures = mutableSetOf<Int>()
     private var isScannerActive = false
+    private var isKeyboardActive = false
 
     // Drag Logic Variables
     private var initialX = 0
@@ -111,6 +112,11 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 ScreenReaderService.ACTION_SCAN_COMPLETE -> {
                     Log.d(TAG, "Scan complete received")
                 }
+                "com.example.stremini_chatbot.KEYBOARD_STATE_CHANGED" -> {
+                    val isActive = intent.getBooleanExtra("isActive", false)
+                    isKeyboardActive = isActive
+                    updateMenuItemsColor()
+                }
             }
         }
     }
@@ -131,6 +137,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         val filter = IntentFilter().apply {
             addAction(ACTION_SEND_MESSAGE)
             addAction(ScreenReaderService.ACTION_SCAN_COMPLETE)
+            addAction("com.example.stremini_chatbot.KEYBOARD_STATE_CHANGED")
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(controlReceiver, filter, RECEIVER_NOT_EXPORTED)
@@ -219,7 +226,7 @@ class ChatOverlayService : Service(), View.OnTouchListener {
                 menuItems[4].setOnClickListener { 
                     if (!isAnimating) { 
                         collapseMenu()
-                        postDelayed({ handleVoiceCommand() }, 250)
+                        postDelayed({ handleKeyboard() }, 250)
                     } 
                 }
             }
@@ -484,17 +491,89 @@ class ChatOverlayService : Service(), View.OnTouchListener {
         ).show()
     }
 
-    private fun handleVoiceCommand() {
-        Toast.makeText(this, "Voice command coming soon", Toast.LENGTH_SHORT).show()
+    private fun handleKeyboard() {
+        val keyboardIconId = menuItems.getOrNull(4)?.id ?: return
+        toggleFeature(keyboardIconId)
+
+        if (isFeatureActive(keyboardIconId)) {
+            // Keyboard activated - show electric neon blue
+            showKeyboardActivation()
+        } else {
+            // Keyboard deactivated
+            isKeyboardActive = false
+            Toast.makeText(this, "AI Keyboard deactivated", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun showKeyboardActivation() {
+        // Check if keyboard is enabled
+        if (!isKeyboardEnabled()) {
+            // Prompt user to enable keyboard
+            val intent = Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            
+            Toast.makeText(
+                this,
+                "Please enable 'Stremini AI Keyboard' in the list",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        // Check if keyboard is selected
+        if (!isKeyboardSelected()) {
+            // Show keyboard picker
+            showKeyboardPicker()
+        } else {
+            isKeyboardActive = true
+            Toast.makeText(this, "Stremini AI Keyboard is active", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun isKeyboardEnabled(): Boolean {
+        val imeManager = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+        val enabledInputMethods = imeManager.enabledInputMethodList
+        val packageName = packageName
+        
+        return enabledInputMethods.any { it.packageName == packageName }
+    }
+
+    private fun isKeyboardSelected(): Boolean {
+        val currentInputMethod = android.provider.Settings.Secure.getString(
+            contentResolver,
+            android.provider.Settings.Secure.DEFAULT_INPUT_METHOD
+        )
+        
+        return currentInputMethod?.contains(packageName) == true
+    }
+
+    private fun showKeyboardPicker() {
+        try {
+            val imeManager = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            imeManager.showInputMethodPicker()
+            
+            Toast.makeText(
+                this,
+                "Select 'Stremini AI Keyboard' from the list",
+                Toast.LENGTH_LONG
+            ).show()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error showing keyboard picker", e)
+        }
     }
 
     private fun handleSettings() {
-        openMainApp()
+        // Open keyboard settings activity
+        val intent = Intent(this, KeyboardSettingsActivity::class.java)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
     }
 
     private fun handleRefresh() {
         activeFeatures.clear()
         isScannerActive = false
+        isKeyboardActive = false
         updateMenuItemsColor()
 
         hideFloatingChatbot()
@@ -521,9 +600,12 @@ class ChatOverlayService : Service(), View.OnTouchListener {
 
     private fun updateMenuItemsColor() {
         val scannerIconId = menuItems.getOrNull(3)?.id
+        val keyboardIconId = menuItems.getOrNull(4)?.id
+        
         menuItems.forEach { item ->
             if (activeFeatures.contains(item.id) ||
-                (item.id == scannerIconId && isScannerActive)) {
+                (item.id == scannerIconId && isScannerActive) ||
+                (item.id == keyboardIconId && isKeyboardActive)) {
                 item.setColorFilter(NEON_BLUE)
             } else {
                 item.setColorFilter(WHITE)
@@ -707,14 +789,6 @@ class ChatOverlayService : Service(), View.OnTouchListener {
             }
             start()
         }
-    }
-
-    private fun openMainApp() {
-        val intent = Intent(this, MainActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or
-                Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        startActivity(intent)
     }
 
     private fun startForegroundService() {
