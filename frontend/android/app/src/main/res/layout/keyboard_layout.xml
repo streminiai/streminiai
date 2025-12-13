@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Enhanced AI Keyboard Layout - Matches Reference Design -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -7,83 +6,67 @@
     android:background="#000000"
     android:padding="8dp">
 
-    <!-- AI Input Section with Gradient -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:padding="8dp"
-        android:gravity="center_vertical"
-        android:background="@drawable/ai_input_gradient_bg">
+        android:gravity="center_vertical">
 
-        <!-- Voice Button -->
         <ImageButton
             android:id="@+id/btn_voice"
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:src="@android:drawable/ic_btn_speak_now"
-            android:background="@drawable/voice_button_bg"
-            android:tint="#23A6E2"
+            android:background="@drawable/circle_bg_blue"
             android:scaleType="fitCenter"
             android:padding="10dp"
             android:contentDescription="Voice Input"/>
 
-        <!-- AI Input Field Container -->
-        <androidx.cardview.widget.CardView
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="8dp"
             android:layout_marginEnd="8dp"
-            app:cardBackgroundColor="#1A1A1A"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="6dp">
+            android:orientation="horizontal"
+            android:background="#1A1A1A"
+            android:padding="12dp"
+            android:gravity="center_vertical">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <EditText
+                android:id="@+id/ai_input_field"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="12dp"
-                android:gravity="center_vertical">
+                android:layout_weight="1"
+                android:hint="Type with AI assistance..."
+                android:textColorHint="#666666"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:background="@null"
+                android:maxLines="3"
+                android:inputType="textMultiLine|textCapSentences"/>
 
-                <EditText
-                    android:id="@+id/ai_input_field"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:hint="Type with AI assistance..."
-                    android:textColorHint="#666666"
-                    android:textColor="#FFFFFF"
-                    android:textSize="15sp"
-                    android:background="@null"
-                    android:maxLines="3"
-                    android:inputType="textMultiLine|textCapSentences"/>
+            <ProgressBar
+                android:id="@+id/loading_indicator"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginStart="8dp"
+                android:visibility="gone"
+                style="@android:style/Widget.ProgressBar.Small"/>
+        </LinearLayout>
 
-                <ProgressBar
-                    android:id="@+id/loading_indicator"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:layout_marginStart="8dp"
-                    android:indeterminateTint="#23A6E2"
-                    android:visibility="gone"
-                    style="@android:style/Widget.ProgressBar.Small"/>
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <!-- Send Button with Gradient -->
         <ImageButton
             android:id="@+id/btn_send"
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:src="@android:drawable/ic_menu_send"
-            android:background="@drawable/send_button_gradient"
-            android:tint="#FFFFFF"
+            android:background="@drawable/send_button_bg"
             android:scaleType="fitCenter"
             android:padding="10dp"
             android:contentDescription="Send"/>
     </LinearLayout>
 
-    <!-- Suggestions Bar -->
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -99,7 +82,6 @@
             android:gravity="center_vertical"/>
     </HorizontalScrollView>
 
-    <!-- AI Quick Actions Bar -->
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -112,13 +94,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <!-- Action buttons will be added programmatically -->
-        </LinearLayout>
+            android:gravity="center_vertical"/>
     </HorizontalScrollView>
 
-    <!-- Keyboard Keys Section -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -126,105 +104,42 @@
         android:layout_marginTop="12dp"
         android:paddingHorizontal="4dp">
 
-        <!-- Number Row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:layout_marginBottom="4dp">
 
-            <TextView
-                android:id="@+id/key_1"
-                style="@style/KeyboardKey"
-                android:text="1"/>
-            <TextView
-                android:id="@+id/key_2"
-                style="@style/KeyboardKey"
-                android:text="2"/>
-            <TextView
-                android:id="@+id/key_3"
-                style="@style/KeyboardKey"
-                android:text="3"/>
-            <TextView
-                android:id="@+id/key_4"
-                style="@style/KeyboardKey"
-                android:text="4"/>
-            <TextView
-                android:id="@+id/key_5"
-                style="@style/KeyboardKey"
-                android:text="5"/>
-            <TextView
-                android:id="@+id/key_6"
-                style="@style/KeyboardKey"
-                android:text="6"/>
-            <TextView
-                android:id="@+id/key_7"
-                style="@style/KeyboardKey"
-                android:text="7"/>
-            <TextView
-                android:id="@+id/key_8"
-                style="@style/KeyboardKey"
-                android:text="8"/>
-            <TextView
-                android:id="@+id/key_9"
-                style="@style/KeyboardKey"
-                android:text="9"/>
-            <TextView
-                android:id="@+id/key_0"
-                style="@style/KeyboardKey"
-                android:text="0"/>
+            <TextView style="@style/KeyboardKey" android:text="1"/>
+            <TextView style="@style/KeyboardKey" android:text="2"/>
+            <TextView style="@style/KeyboardKey" android:text="3"/>
+            <TextView style="@style/KeyboardKey" android:text="4"/>
+            <TextView style="@style/KeyboardKey" android:text="5"/>
+            <TextView style="@style/KeyboardKey" android:text="6"/>
+            <TextView style="@style/KeyboardKey" android:text="7"/>
+            <TextView style="@style/KeyboardKey" android:text="8"/>
+            <TextView style="@style/KeyboardKey" android:text="9"/>
+            <TextView style="@style/KeyboardKey" android:text="0"/>
         </LinearLayout>
 
-        <!-- Top Row (Q-P) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:layout_marginBottom="4dp">
 
-            <TextView
-                android:id="@+id/key_q"
-                style="@style/KeyboardKey"
-                android:text="q"/>
-            <TextView
-                android:id="@+id/key_w"
-                style="@style/KeyboardKey"
-                android:text="w"/>
-            <TextView
-                android:id="@+id/key_e"
-                style="@style/KeyboardKey"
-                android:text="e"/>
-            <TextView
-                android:id="@+id/key_r"
-                style="@style/KeyboardKey"
-                android:text="r"/>
-            <TextView
-                android:id="@+id/key_t"
-                style="@style/KeyboardKey"
-                android:text="t"/>
-            <TextView
-                android:id="@+id/key_y"
-                style="@style/KeyboardKey"
-                android:text="y"/>
-            <TextView
-                android:id="@+id/key_u"
-                style="@style/KeyboardKey"
-                android:text="u"/>
-            <TextView
-                android:id="@+id/key_i"
-                style="@style/KeyboardKey"
-                android:text="i"/>
-            <TextView
-                android:id="@+id/key_o"
-                style="@style/KeyboardKey"
-                android:text="o"/>
-            <TextView
-                android:id="@+id/key_p"
-                style="@style/KeyboardKey"
-                android:text="p"/>
+            <TextView style="@style/KeyboardKey" android:text="q"/>
+            <TextView style="@style/KeyboardKey" android:text="w"/>
+            <TextView style="@style/KeyboardKey" android:text="e"/>
+            <TextView style="@style/KeyboardKey" android:text="r"/>
+            <TextView style="@style/KeyboardKey" android:text="t"/>
+            <TextView style="@style/KeyboardKey" android:text="y"/>
+            <TextView style="@style/KeyboardKey" android:text="u"/>
+            <TextView style="@style/KeyboardKey" android:text="i"/>
+            <TextView style="@style/KeyboardKey" android:text="o"/>
+            <TextView style="@style/KeyboardKey" android:text="p"/>
         </LinearLayout>
 
-        <!-- Middle Row (A-L) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -232,45 +147,17 @@
             android:layout_marginBottom="4dp"
             android:paddingHorizontal="20dp">
 
-            <TextView
-                android:id="@+id/key_a"
-                style="@style/KeyboardKey"
-                android:text="a"/>
-            <TextView
-                android:id="@+id/key_s"
-                style="@style/KeyboardKey"
-                android:text="s"/>
-            <TextView
-                android:id="@+id/key_d"
-                style="@style/KeyboardKey"
-                android:text="d"/>
-            <TextView
-                android:id="@+id/key_f"
-                style="@style/KeyboardKey"
-                android:text="f"/>
-            <TextView
-                android:id="@+id/key_g"
-                style="@style/KeyboardKey"
-                android:text="g"/>
-            <TextView
-                android:id="@+id/key_h"
-                style="@style/KeyboardKey"
-                android:text="h"/>
-            <TextView
-                android:id="@+id/key_j"
-                style="@style/KeyboardKey"
-                android:text="j"/>
-            <TextView
-                android:id="@+id/key_k"
-                style="@style/KeyboardKey"
-                android:text="k"/>
-            <TextView
-                android:id="@+id/key_l"
-                style="@style/KeyboardKey"
-                android:text="l"/>
+            <TextView style="@style/KeyboardKey" android:text="a"/>
+            <TextView style="@style/KeyboardKey" android:text="s"/>
+            <TextView style="@style/KeyboardKey" android:text="d"/>
+            <TextView style="@style/KeyboardKey" android:text="f"/>
+            <TextView style="@style/KeyboardKey" android:text="g"/>
+            <TextView style="@style/KeyboardKey" android:text="h"/>
+            <TextView style="@style/KeyboardKey" android:text="j"/>
+            <TextView style="@style/KeyboardKey" android:text="k"/>
+            <TextView style="@style/KeyboardKey" android:text="l"/>
         </LinearLayout>
 
-        <!-- Bottom Row with Shift and Backspace -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -278,79 +165,50 @@
             android:layout_marginBottom="4dp">
 
             <TextView
-                android:id="@+id/key_shift"
                 style="@style/KeyboardSpecialKey"
                 android:text="⇧"
                 android:layout_weight="1.5"/>
 
-            <TextView
-                android:id="@+id/key_z"
-                style="@style/KeyboardKey"
-                android:text="z"/>
-            <TextView
-                android:id="@+id/key_x"
-                style="@style/KeyboardKey"
-                android:text="x"/>
-            <TextView
-                android:id="@+id/key_c"
-                style="@style/KeyboardKey"
-                android:text="c"/>
-            <TextView
-                android:id="@+id/key_v"
-                style="@style/KeyboardKey"
-                android:text="v"/>
-            <TextView
-                android:id="@+id/key_b"
-                style="@style/KeyboardKey"
-                android:text="b"/>
-            <TextView
-                android:id="@+id/key_n"
-                style="@style/KeyboardKey"
-                android:text="n"/>
-            <TextView
-                android:id="@+id/key_m"
-                style="@style/KeyboardKey"
-                android:text="m"/>
+            <TextView style="@style/KeyboardKey" android:text="z"/>
+            <TextView style="@style/KeyboardKey" android:text="x"/>
+            <TextView style="@style/KeyboardKey" android:text="c"/>
+            <TextView style="@style/KeyboardKey" android:text="v"/>
+            <TextView style="@style/KeyboardKey" android:text="b"/>
+            <TextView style="@style/KeyboardKey" android:text="n"/>
+            <TextView style="@style/KeyboardKey" android:text="m"/>
 
             <TextView
-                android:id="@+id/key_backspace"
                 style="@style/KeyboardSpecialKey"
                 android:text="⌫"
                 android:layout_weight="1.5"/>
         </LinearLayout>
 
-        <!-- Space Bar Row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
             <TextView
-                android:id="@+id/key_symbols"
                 style="@style/KeyboardSpecialKey"
-                android:text="?123"
+                android:text="\?123"
                 android:layout_weight="1.2"/>
 
             <TextView
-                android:id="@+id/key_comma"
                 style="@style/KeyboardKey"
                 android:text=","
                 android:layout_weight="1"/>
 
             <TextView
-                android:id="@+id/key_space"
                 style="@style/KeyboardSpaceKey"
                 android:text="Space"
                 android:layout_weight="4"/>
 
             <TextView
-                android:id="@+id/key_period"
                 style="@style/KeyboardKey"
                 android:text="."
                 android:layout_weight="1"/>
 
             <TextView
-                android:id="@+id/key_enter"
                 style="@style/KeyboardEnterKey"
                 android:text="↵"
                 android:layout_weight="1.5"/>
