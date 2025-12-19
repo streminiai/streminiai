@@ -11,7 +11,6 @@ import android.view.ViewGroup
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.inputmethod.EditorInfo
 import android.widget.*
-import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.*
 import okhttp3.*
@@ -62,7 +61,7 @@ class StreminiIME : InputMethodService() {
     private fun createModernKeyboardView(): ViewGroup {
         val mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#000000"))
+            setBackgroundColor(Color.parseColor("#2D2D2D"))
             setPadding(0, 8, 0, 8)
         }
 
@@ -94,30 +93,39 @@ class StreminiIME : InputMethodService() {
         }
         container.addView(btnVoice)
 
-        // Input field container with modern design
-        val inputContainer = CardView(this).apply {
+        // Input field container with modern design - white background
+        val inputContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 weight = 1f
                 setMargins(8, 0, 8, 0)
             }
-            radius = 24f
-            cardElevation = 4f
-            setCardBackgroundColor(Color.parseColor("#1A1A1A"))
+            background = createRoundedWhiteBackground()
+            elevation = 2f
         }
 
         val inputLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(16, 8, 16, 8)
+            setPadding(16, 12, 16, 12)
             gravity = Gravity.CENTER_VERTICAL
         }
+
+        // Camera icon
+        val cameraIcon = ImageView(this).apply {
+            setImageResource(android.R.drawable.ic_menu_camera)
+            setColorFilter(Color.parseColor("#666666"))
+            layoutParams = LinearLayout.LayoutParams(24, 24).apply {
+                setMargins(0, 0, 12, 0)
+            }
+        }
+        inputLayout.addView(cameraIcon)
 
         inputField = EditText(this).apply {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 weight = 1f
             }
-            hint = "Type with AI assistance..."
-            setHintTextColor(Color.parseColor("#666666"))
-            setTextColor(Color.WHITE)
+            hint = "Message freely and smartly with stremini"
+            setHintTextColor(Color.parseColor("#999999"))
+            setTextColor(Color.BLACK)
             textSize = 15f
             background = null
             maxLines = 3
@@ -198,14 +206,11 @@ class StreminiIME : InputMethodService() {
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        // Add AI action buttons
+        // Add AI action buttons - matching image style
         val actions = listOf(
-            Triple("✨", "Complete", ::handleComplete),
-            Triple("✓", "Correct", ::handleCorrect),
-            Triple("🎨", "Tone", ::handleTone),
-            Triple("🌐", "Translate", ::handleTranslate),
-            Triple("📝", "Expand", ::handleExpand),
-            Triple("😊", "Emoji", ::handleEmoji)
+            Triple("↩", "Improve", ::handleCorrect),
+            Triple("⚡", "Complete", ::handleComplete),
+            Triple("🎵", "Tone Changer", ::handleTone)
         )
 
         actions.forEach { (icon, label, action) ->
@@ -217,10 +222,11 @@ class StreminiIME : InputMethodService() {
     }
 
     private fun createAIActionButton(icon: String, label: String, action: () -> Unit): View {
+        // Create a horizontal button with icon and text side by side
         val container = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(8, 8, 8, 8)
-            gravity = Gravity.CENTER
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(16, 12, 16, 12)
+            gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -228,10 +234,9 @@ class StreminiIME : InputMethodService() {
                 setMargins(4, 0, 4, 0)
             }
             
-            // Ripple effect
+            background = createAIActionButtonDrawable()
             isClickable = true
             isFocusable = true
-            background = createRippleDrawable()
             
             setOnClickListener {
                 animateClick(this)
@@ -241,19 +246,22 @@ class StreminiIME : InputMethodService() {
 
         val iconText = TextView(this).apply {
             text = icon
-            textSize = 20f
+            textSize = 18f
+            setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
-            setPadding(12, 12, 12, 12)
-            setBackgroundResource(android.R.drawable.dialog_holo_light_frame)
-            background = createCircleGradientDrawable()
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 0, 8, 0)
+            }
         }
 
         val labelText = TextView(this).apply {
             text = label
-            textSize = 10f
-            setTextColor(Color.parseColor("#AAAAAA"))
-            gravity = Gravity.CENTER
-            setPadding(0, 4, 0, 0)
+            textSize = 14f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER_VERTICAL
         }
 
         container.addView(iconText)
@@ -288,8 +296,8 @@ class StreminiIME : InputMethodService() {
             }
         }
 
-        // Shift key
-        bottomRow.addView(createSpecialKey("⇧", 1.5f) {
+        // Shift key - white background
+        bottomRow.addView(createShiftKey("⇧", 1.5f) {
             // Toggle shift
         })
 
@@ -297,10 +305,25 @@ class StreminiIME : InputMethodService() {
             bottomRow.addView(createKey(key))
         }
 
-        // Backspace key
-        bottomRow.addView(createSpecialKey("⌫", 1.5f) {
-            deleteText()
-        })
+        // Backspace key - using X icon style
+        val backspaceKey = TextView(this).apply {
+            text = "⌫"
+            textSize = 18f
+            setTextColor(Color.BLACK)
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, 120).apply {
+                weight = 1.5f
+                setMargins(2, 2, 2, 2)
+            }
+            background = createSpecialKeyBackgroundDrawable()
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                animateKeyPress(this)
+                deleteText()
+            }
+        }
+        bottomRow.addView(backspaceKey)
 
         container.addView(bottomRow)
 
@@ -319,19 +342,51 @@ class StreminiIME : InputMethodService() {
             // Toggle numbers/symbols
         })
         
-        spaceRow.addView(createSpecialKey(",", 1f) {
-            commitText(",")
-        })
+        // Emoji button - using text emoji instead of icon
+        val emojiButton = TextView(this).apply {
+            text = "😊"
+            textSize = 20f
+            setTextColor(Color.BLACK)
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, 120).apply {
+                weight = 1.2f
+                setMargins(2, 2, 2, 2)
+            }
+            background = createSpecialKeyBackgroundDrawable()
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                animateKeyPress(this)
+                handleEmoji()
+            }
+        }
+        spaceRow.addView(emojiButton)
+        
+        // Microphone button
+        val micButton = ImageButton(this).apply {
+            setImageResource(android.R.drawable.ic_btn_speak_now)
+            setColorFilter(Color.BLACK)
+            layoutParams = LinearLayout.LayoutParams(0, 120).apply {
+                weight = 1.2f
+                setMargins(2, 2, 2, 2)
+            }
+            background = createSpecialKeyBackgroundDrawable()
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setPadding(8, 8, 8, 8)
+            isClickable = true
+            setOnClickListener {
+                animateKeyPress(this)
+                showToast("Voice input coming soon")
+            }
+        }
+        spaceRow.addView(micButton)
         
         spaceRow.addView(createSpecialKey("Space", 4f) {
             commitText(" ")
         })
         
-        spaceRow.addView(createSpecialKey(".", 1f) {
-            commitText(".")
-        })
-        
-        spaceRow.addView(createSpecialKey("↵", 1.5f) {
+        // Return key - green
+        spaceRow.addView(createReturnKey("↵", 1.5f) {
             sendDefaultEditorAction(true)
         })
 
@@ -378,7 +433,7 @@ class StreminiIME : InputMethodService() {
         return TextView(this).apply {
             text = key
             textSize = 18f
-            setTextColor(Color.WHITE)
+            setTextColor(Color.BLACK)
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(0, 120).apply {
                 weight = 1f
@@ -400,13 +455,55 @@ class StreminiIME : InputMethodService() {
         return TextView(this).apply {
             text = label
             textSize = 16f
-            setTextColor(Color.WHITE)
+            setTextColor(Color.BLACK)
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(0, 120).apply {
                 this.weight = weight
                 setMargins(2, 2, 2, 2)
             }
             background = createSpecialKeyBackgroundDrawable()
+            isClickable = true
+            isFocusable = true
+            
+            setOnClickListener {
+                animateKeyPress(this)
+                action()
+            }
+        }
+    }
+
+    private fun createShiftKey(label: String, weight: Float, action: () -> Unit): View {
+        return TextView(this).apply {
+            text = label
+            textSize = 16f
+            setTextColor(Color.BLACK)
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, 120).apply {
+                this.weight = weight
+                setMargins(2, 2, 2, 2)
+            }
+            background = createShiftKeyDrawable()
+            isClickable = true
+            isFocusable = true
+            
+            setOnClickListener {
+                animateKeyPress(this)
+                action()
+            }
+        }
+    }
+
+    private fun createReturnKey(label: String, weight: Float, action: () -> Unit): View {
+        return TextView(this).apply {
+            text = label
+            textSize = 16f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, 120).apply {
+                this.weight = weight
+                setMargins(2, 2, 2, 2)
+            }
+            background = createReturnKeyDrawable()
             isClickable = true
             isFocusable = true
             
@@ -438,16 +535,41 @@ class StreminiIME : InputMethodService() {
     // Drawable creators
     private fun createKeyBackgroundDrawable() = android.graphics.drawable.GradientDrawable().apply {
         shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-        setColor(Color.parseColor("#1A1A1A"))
-        cornerRadius = 12f
-        setStroke(1, Color.parseColor("#333333"))
+        setColor(Color.parseColor("#C0C0C0"))
+        cornerRadius = 8f
+        setStroke(1, Color.parseColor("#A0A0A0"))
     }
 
     private fun createSpecialKeyBackgroundDrawable() = android.graphics.drawable.GradientDrawable().apply {
         shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-        setColor(Color.parseColor("#2A2A2A"))
-        cornerRadius = 12f
-        setStroke(1, Color.parseColor("#444444"))
+        setColor(Color.parseColor("#E0E0E0"))
+        cornerRadius = 8f
+        setStroke(1, Color.parseColor("#B0B0B0"))
+    }
+
+    private fun createAIActionButtonDrawable() = android.graphics.drawable.GradientDrawable().apply {
+        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+        setColor(Color.parseColor("#1A1A1A"))
+        cornerRadius = 20f
+    }
+
+    private fun createReturnKeyDrawable() = android.graphics.drawable.GradientDrawable().apply {
+        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+        setColor(Color.parseColor("#4CAF50"))
+        cornerRadius = 8f
+    }
+
+    private fun createShiftKeyDrawable() = android.graphics.drawable.GradientDrawable().apply {
+        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+        setColor(Color.WHITE)
+        cornerRadius = 8f
+        setStroke(1, Color.parseColor("#A0A0A0"))
+    }
+
+    private fun createRoundedWhiteBackground() = android.graphics.drawable.GradientDrawable().apply {
+        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+        setColor(Color.WHITE)
+        cornerRadius = 24f
     }
 
     private fun createCircleGradientDrawable() = android.graphics.drawable.GradientDrawable().apply {
