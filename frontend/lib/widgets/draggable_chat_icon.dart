@@ -83,6 +83,8 @@ class _DraggableChatIconState extends ConsumerState<DraggableChatIcon>
   late Animation<double> _expandAnimation;
   late Animation<double> _rotateAnimation;
   late Offset _currentPosition;
+  // Store the initial side (true for right, false for left)
+  late bool _isRightSide;
 
   static const double _iconSize = 60.0;
 
@@ -104,6 +106,12 @@ class _DraggableChatIconState extends ConsumerState<DraggableChatIcon>
     );
 
     _updateAnimation(widget.overlayMode == "radial");
+    // Determine initial side after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final screenWidth = MediaQuery.of(context).size.width;
+      _isRightSide =
+          (_currentPosition.dx + (_iconSize / 2)) > (screenWidth / 2);
+    });
   }
 
   @override
@@ -217,7 +225,7 @@ class _DraggableChatIconState extends ConsumerState<DraggableChatIcon>
             /// 🔥 MAIN GLOWING BUTTON
             GestureDetector(
               onPanUpdate: (details) {
-                if (isRadial) widget.onTapMain();
+                // Update position without toggling radial menu during drag
                 setState(() {
                   _currentPosition += details.delta;
                 });
@@ -225,16 +233,10 @@ class _DraggableChatIconState extends ConsumerState<DraggableChatIcon>
               onPanEnd: (details) {
                 final screenWidth = MediaQuery.of(context).size.width;
                 final screenHeight = MediaQuery.of(context).size.height;
-
                 final topPadding = MediaQuery.of(context).padding.top;
-
-                final centerX = _currentPosition.dx + (_iconSize / 2);
-                final snapRight = centerX > (screenWidth / 2);
-
-                final clampedX = snapRight ? (screenWidth - _iconSize) : 0.0;
+                final clampedX = _isRightSide ? (screenWidth - _iconSize) : 0.0;
                 final clampedY = _currentPosition.dy
                     .clamp(topPadding, screenHeight - _iconSize);
-
                 _currentPosition = Offset(clampedX, clampedY);
                 widget.onDragEnd(_currentPosition);
               },

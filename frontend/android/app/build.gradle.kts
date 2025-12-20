@@ -1,40 +1,37 @@
 plugins {
     id("com.android.application")
-    id("kotlin-android")
+    id("org.jetbrains.kotlin.android") // Updated to match Root definition
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
     namespace = "com.example.stremini_chatbot"
-    compileSdk = 36
-    ndkVersion = "29.0.14206865"
+    compileSdk = 35 // 36 is likely Canary/Preview. 35 is Android 15 (current stable-ish).
+    ndkVersion = "26.1.10909125" // Adjusted to a common stable NDK, or keep yours if installed.
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        // Java 21 is very new for Android compilation, 17 is safer for now.
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "17" // Must match compileOptions above
     }
 
     defaultConfig {
         applicationId = "com.example.stremini_chatbot"
-        minSdk = 26  // Android 8.0
-        targetSdk = 36  // Latest Android 14
+        minSdk = 26
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
-        
+
         vectorDrawables.useSupportLibrary = true
         multiDexEnabled = true
     }
 
     buildTypes {
         release {
-            // IMPORTANT: For production, create a proper signing config
-            signingConfig = signingConfigs.getByName("debug")
-            
-            // Enable code shrinking and obfuscation
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -42,19 +39,20 @@ android {
                 "proguard-rules.pro"
             )
         }
-        
         debug {
-            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
         }
     }
-    
-    packagingOptions {
-        resources.excludes.add("META-INF/DEPENDENCIES")
-        resources.excludes.add("META-INF/LICENSE")
-        resources.excludes.add("META-INF/LICENSE.txt")
-        resources.excludes.add("META-INF/NOTICE")
-        resources.excludes.add("META-INF/NOTICE.txt")
+
+    // 'packagingOptions' is deprecated in newer AGP, replaced by 'packaging' block
+    packaging {
+        resources {
+            excludes += "META-INF/DEPENDENCIES"
+            excludes += "META-INF/LICENSE"
+            excludes += "META-INF/LICENSE.txt"
+            excludes += "META-INF/NOTICE"
+            excludes += "META-INF/NOTICE.txt"
+        }
     }
 }
 
@@ -67,7 +65,6 @@ dependencies {
     implementation("org.json:json:20231013")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("com.google.android.play:core:1.10.3")
-    
-    // Add AppCompat for AlertDialog
+    implementation("androidx.cardview:cardview:1.0.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
 }

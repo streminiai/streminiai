@@ -15,12 +15,22 @@ pluginManagement {
         mavenCentral()
         gradlePluginPortal()
     }
+    
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == "com.android.application") {
+                useModule("com.android.tools.build:gradle:8.2.2")
+            }
+            if (requested.id.id == "org.jetbrains.kotlin.android") {
+                useModule("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22")
+            }
+        }
+    }
 }
 
 plugins {
+    // ONLY the Flutter loader goes here
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "8.9.1" apply false
-    id("org.jetbrains.kotlin.android") version "2.1.0" apply false
 }
 
 include(":app")
